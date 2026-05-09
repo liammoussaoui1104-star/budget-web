@@ -25,6 +25,7 @@ class User(UserMixin):
         self.id = row["id"]
         self.email = row["email"]
         self.household_name = row["household_name"]
+        self.is_admin = bool(row["is_admin"]) if "is_admin" in row.keys() else False
 
 
 @login_manager.user_loader
@@ -542,6 +543,45 @@ def reconduire_fixes():
         return jsonify(ok=True, count=count)
     except Exception as e:
         return jsonify(ok=False, error=str(e)), 400
+
+
+# ── Contact ────────────────────────────────────────────────────────────────
+
+@app.route("/contact", methods=["GET", "POST"])
+def contact():
+    if request.method == "POST":
+        nom = request.form.get("nom", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        telephone = request.form.get("telephone", "").strip()
+        message = request.form.get("message", "").strip()
+        if not nom or not email or not message:
+            flash("Nom, email et message sont requis.", "error")
+            return render_template("contact.html")
+        db.add_contact_message(nom, email, telephone, message)
+        flash("Message envoyé ! Nous te répondrons dès que possible.", "success")
+        return redirect(url_for("contact"))
+    return render_template("contact.html")
+
+
+# ── Admin ───────────────────────────────────────────────────────────────────
+
+@app.route("/admin/messages")
+@login_required
+def admin_messages():
+    if not current_user.is_admin:
+        flash("Accès réservé à l'administrateur.", "error")
+        return redirect(url_for("dashboard"))
+    messages = db.get_contact_messages()
+    return render_template("admin_messages.html", messages=messages)
+
+
+@app.route("/admin/messages/<int:msg_id>/lu", methods=["POST"])
+@login_required
+def admin_mark_lu(msg_id):
+    if not current_user.is_admin:
+        return jsonify(ok=False), 403
+    db.mark_message_lu(msg_id)
+    return jsonify(ok=True)
 
 
 if __name__ == "__main__":

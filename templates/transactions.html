@@ -300,8 +300,10 @@ document.getElementById('formAdd').addEventListener('submit', async e => {
   });
   const json = await res.json();
   if (json.ok) {
+    e.target.reset();
+    document.getElementById('addJour').value = {{ now_day }};
     showToast('Transaction ajoutée ✓');
-    setTimeout(() => location.reload(), 600);
+    setTimeout(() => location.reload(), 800);
   } else {
     showToast('Erreur : ' + (json.error || 'inconnue'), false);
   }

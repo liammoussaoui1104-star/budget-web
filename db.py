@@ -22,6 +22,12 @@ class DB:
         conn.execute("PRAGMA journal_mode=WAL")
         return conn
 
+    def _migrate(self, conn):
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+        except Exception:
+            pass
+
     def _init(self):
         with self._conn() as conn:
             conn.executescript("""
@@ -74,7 +80,18 @@ class DB:
                     UNIQUE(user_id, categorie),
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 );
+                CREATE TABLE IF NOT EXISTS contact_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nom TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    telephone TEXT DEFAULT '',
+                    message TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    lu INTEGER DEFAULT 0
+                );
             """)
+
+            self._migrate(conn)
 
     # ── Users ──────────────────────────────────────────────────────────────
     def create_user(self, email, password_hash, household_name=""):
@@ -334,6 +351,25 @@ class DB:
                 (uid, y, m, member_id)
             )
 
+    # ── Contact messages ───────────────────────────────────────────────────
+    def add_contact_message(self, nom, email, telephone, message):
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO contact_messages (nom, email, telephone, message) VALUES (?,?,?,?)",
+                (nom, email, telephone, message)
+            )
+
+    def get_contact_messages(self):
+        with self._conn() as conn:
+            return conn.execute(
+                "SELECT * FROM contact_messages ORDER BY created_at DESC"
+            ).fetchall()
+
+    def mark_message_lu(self, msg_id):
+        with self._conn() as conn:
+            conn.execute("UPDATE contact_messages SET lu=1 WHERE id=?", (msg_id,))
+
+    # ── Utils ──────────────────────────────────────────────────────────────
     def get_totaux_pour_member(self, uid, y, m, member_name):
         with self._conn() as conn:
             row = conn.execute("""

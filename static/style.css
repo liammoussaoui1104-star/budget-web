@@ -821,6 +821,47 @@ img { display: block; max-width: 100%; }
   .login-form-title { font-size: 1.35rem; }
 }
 
+/* ── Contact page ────────────────────────────────────────────────────────── */
+.contact-card { max-width: 480px; }
+.contact-optional { font-size: .75rem; color: var(--sub); font-weight: 400; }
+.contact-card textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 110px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .55rem .75rem;
+  font: inherit;
+  color: var(--text);
+  transition: border-color .15s;
+}
+.contact-card textarea:focus { outline: none; border-color: var(--accent); }
+.contact-link-sep { display: none; }
+.login-contact-link {
+  text-align: center;
+  font-size: .8rem;
+  margin-top: .75rem;
+}
+.login-contact-link a { color: var(--sub); }
+.login-contact-link a:hover { color: var(--accent); }
+
+/* ── Admin messages ──────────────────────────────────────────────────────── */
+.admin-badge {
+  font-size: .72rem;
+  font-weight: 600;
+  background: var(--warn-bg);
+  color: var(--warn);
+  padding: .2rem .65rem;
+  border-radius: 999px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.msg-unread { background: oklch(98% 0.01 258); }
+.msg-unread td:first-child { font-weight: 600; }
+.msg-text { max-width: 320px; white-space: pre-wrap; word-break: break-word; font-size: .85rem; color: var(--text2); }
+.msg-status-lu { font-size: .75rem; color: var(--sub); }
+
 /* ── Print / Export PDF ──────────────────────────────────────────────────── */
 @media print {
   .sidebar, .topbar, .hamburger, .sidebar-overlay,
