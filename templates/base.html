@@ -33,6 +33,11 @@
       <a href="{{ url_for('settings') }}" class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}">
         <span class="nav-icon">⚙️</span> Paramètres
       </a>
+      {% if current_user.is_admin %}
+      <a href="{{ url_for('admin') }}" class="nav-link {% if request.endpoint == 'admin' %}active{% endif %}">
+        <span class="nav-icon">🛡️</span> Admin
+      </a>
+      {% endif %}
     </nav>
     <div class="sidebar-footer">
       <span class="user-email">{{ current_user.email }}</span>

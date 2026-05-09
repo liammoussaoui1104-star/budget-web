@@ -898,6 +898,58 @@ img { display: block; max-width: 100%; }
 .msg-text { max-width: 320px; white-space: pre-wrap; word-break: break-word; font-size: .85rem; color: var(--text2); }
 .msg-status-lu { font-size: .75rem; color: var(--sub); }
 
+/* ── Admin dashboard ─────────────────────────────────────────────────────── */
+.admin-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.admin-stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.admin-stat-card.admin-stat-danger { border-color: var(--danger); background: var(--danger-bg); }
+.admin-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+.admin-stat-danger .admin-stat-value { color: var(--danger); }
+.admin-stat-label { font-size: .8rem; color: var(--sub); font-weight: 500; }
+
+.badge {
+  display: inline-block;
+  font-size: .7rem;
+  font-weight: 600;
+  padding: .2rem .55rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.badge-admin   { background: oklch(93% 0.04 258); color: var(--accent); }
+.badge-user    { background: var(--input); color: var(--sub); }
+.badge-active  { background: var(--ok-bg); color: var(--ok); }
+.badge-blocked { background: var(--danger-bg); color: var(--danger); }
+
+.user-blocked td { opacity: .55; }
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+}
+.btn-danger:hover { background: oklch(40% 0.15 25); }
+
+@media (max-width: 640px) {
+  .admin-stats-row { grid-template-columns: 1fr; }
+}
+
 /* ── Print / Export PDF ──────────────────────────────────────────────────── */
 @media print {
   .sidebar, .topbar, .hamburger, .sidebar-overlay,

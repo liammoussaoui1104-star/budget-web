@@ -156,6 +156,9 @@ def login():
         pwd = request.form.get("password", "")
         row = db.get_user_by_email(email)
         if row and check_password_hash(row["password_hash"], pwd):
+            if row["blocked"]:
+                flash("Ton compte a été suspendu. Contacte l'administrateur.", "error")
+                return render_template("login.html")
             login_user(User(row), remember=request.form.get("remember") == "on")
             return redirect(request.args.get("next") or url_for("dashboard"))
         flash("Email ou mot de passe incorrect.", "error")
@@ -569,6 +572,44 @@ def contact():
 
 
 # ── Admin ───────────────────────────────────────────────────────────────────
+
+@app.route("/admin")
+@login_required
+def admin():
+    if not current_user.is_admin:
+        flash("Accès réservé à l'administrateur.", "error")
+        return redirect(url_for("dashboard"))
+    now = datetime.now()
+    y, m = now.year, now.month
+    py, pm = prev_period(y, m)
+    ny, nm = next_period(y, m)
+    stats = db.get_admin_stats()
+    users = db.get_all_users()
+    messages = db.get_contact_messages()
+    return render_template("admin.html",
+        stats=stats, users=users, messages=messages,
+        y=y, m=m, mois_fr=MOIS_FR[m],
+        py=py, pm=pm, ny=ny, nm=nm
+    )
+
+
+@app.route("/admin/users/<int:uid>/block", methods=["POST"])
+@login_required
+def admin_block_user(uid):
+    if not current_user.is_admin:
+        return jsonify(ok=False), 403
+    db.block_user(uid)
+    return jsonify(ok=True)
+
+
+@app.route("/admin/users/<int:uid>/unblock", methods=["POST"])
+@login_required
+def admin_unblock_user(uid):
+    if not current_user.is_admin:
+        return jsonify(ok=False), 403
+    db.unblock_user(uid)
+    return jsonify(ok=True)
+
 
 @app.route("/admin/messages")
 @login_required

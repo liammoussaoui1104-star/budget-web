@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Administration — Budget Familial{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Administration</h2>
+  <span class="admin-badge">Accès restreint</span>
+</div>
+
+<!-- Stats -->
+<div class="admin-stats-row">
+  <div class="admin-stat-card">
+    <span class="admin-stat-value">{{ stats.total }}</span>
+    <span class="admin-stat-label">Comptes enregistrés</span>
+  </div>
+  <div class="admin-stat-card">
+    <span class="admin-stat-value">{{ stats.active }}</span>
+    <span class="admin-stat-label">Foyers actifs</span>
+  </div>
+  <div class="admin-stat-card {% if stats.blocked > 0 %}admin-stat-danger{% endif %}">
+    <span class="admin-stat-value">{{ stats.blocked }}</span>
+    <span class="admin-stat-label">Comptes bloqués</span>
+  </div>
+</div>
+
+<!-- Comptes utilisateurs -->
+<div class="section-title" style="margin-top:2rem">Comptes utilisateurs</div>
+<div class="card" style="margin-top:.75rem">
+  {% if users %}
+  <div class="table-wrap">
+    <table class="table" id="usersTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Email</th>
+          <th>Foyer</th>
+          <th>Inscrit le</th>
+          <th class="text-center">Rôle</th>
+          <th class="text-center">Statut</th>
+          <th class="text-center">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr id="user-row-{{ u.id }}" class="{% if u.blocked %}user-blocked{% endif %}">
+          <td class="text-sub">{{ u.id }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.household_name or '—' }}</td>
+          <td class="text-sub" style="white-space:nowrap">
+            {{ u.created_at[:10] if u.created_at else '—' }}
+          </td>
+          <td class="text-center">
+            {% if u.is_admin %}
+            <span class="badge badge-admin">Admin</span>
+            {% else %}
+            <span class="badge badge-user">Utilisateur</span>
+            {% endif %}
+          </td>
+          <td class="text-center" id="status-{{ u.id }}">
+            {% if u.blocked %}
+            <span class="badge badge-blocked">Bloqué</span>
+            {% else %}
+            <span class="badge badge-active">Actif</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if not u.is_admin %}
+              {% if u.blocked %}
+              <button class="btn btn-sm btn-outline user-unblock-btn"
+                      data-id="{{ u.id }}">Débloquer</button>
+              {% else %}
+              <button class="btn btn-sm btn-danger user-block-btn"
+                      data-id="{{ u.id }}">Bloquer</button>
+              {% endif %}
+            {% else %}
+              <span class="text-sub">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state" style="padding:1.5rem">Aucun compte enregistré.</p>
+  {% endif %}
+</div>
+
+<!-- Messages de contact -->
+<div class="section-title" style="margin-top:2rem">Messages de contact</div>
+<div class="card" style="margin-top:.75rem">
+  {% if messages %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Nom</th>
+          <th>Email</th>
+          <th>Téléphone</th>
+          <th>Message</th>
+          <th class="text-center">Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for msg in messages %}
+        <tr class="msg-row {% if not msg.lu %}msg-unread{% endif %}" id="row-{{ msg.id }}">
+          <td class="text-sub" style="white-space:nowrap">{{ msg.created_at[:16] }}</td>
+          <td><strong>{{ msg.nom }}</strong></td>
+          <td><a href="mailto:{{ msg.email }}">{{ msg.email }}</a></td>
+          <td class="text-sub">{{ msg.telephone or '—' }}</td>
+          <td class="msg-text">{{ msg.message }}</td>
+          <td class="text-center">
+            {% if msg.lu %}
+            <span class="msg-status-lu">Lu</span>
+            {% else %}
+            <button class="btn btn-sm btn-outline msg-mark-lu" data-id="{{ msg.id }}">
+              Marquer lu
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state" style="padding:1.5rem">Aucun message reçu.</p>
+  {% endif %}
+</div>
+
+<div id="toastMsg" class="toast hidden"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toastMsg');
+  t.textContent = msg;
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-error');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = 'toast hidden'; }, 3000);
+}
+
+// Block
+document.querySelectorAll('.user-block-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const id = btn.dataset.id;
+    const res = await fetch(`/admin/users/${id}/block`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById(`status-${id}`).innerHTML =
+        '<span class="badge badge-blocked">Bloqué</span>';
+      btn.textContent = 'Débloquer';
+      btn.classList.remove('btn-danger');
+      btn.classList.add('btn-outline', 'user-unblock-btn');
+      btn.classList.remove('user-block-btn');
+      document.getElementById(`user-row-${id}`).classList.add('user-blocked');
+      btn.removeEventListener('click', arguments.callee);
+      wireUnblock(btn, id);
+      showToast('Compte bloqué.');
+    } else {
+      showToast('Erreur.', false);
+    }
+  });
+});
+
+// Unblock
+document.querySelectorAll('.user-unblock-btn').forEach(btn => {
+  wireUnblock(btn, btn.dataset.id);
+});
+
+function wireUnblock(btn, id) {
+  btn.addEventListener('click', async () => {
+    const res = await fetch(`/admin/users/${id}/unblock`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById(`status-${id}`).innerHTML =
+        '<span class="badge badge-active">Actif</span>';
+      btn.textContent = 'Bloquer';
+      btn.classList.remove('btn-outline', 'user-unblock-btn');
+      btn.classList.add('btn-danger', 'user-block-btn');
+      document.getElementById(`user-row-${id}`).classList.remove('user-blocked');
+      showToast('Compte débloqué.');
+    } else {
+      showToast('Erreur.', false);
+    }
+  });
+}
+
+// Mark message as read
+document.querySelectorAll('.msg-mark-lu').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const id = btn.dataset.id;
+    const res = await fetch(`/admin/messages/${id}/lu`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      const row = document.getElementById(`row-${id}`);
+      row.classList.remove('msg-unread');
+      btn.replaceWith(Object.assign(document.createElement('span'), {
+        className: 'msg-status-lu',
+        textContent: 'Lu'
+      }));
+    }
+  });
+});
+</script>
+{% endblock %}

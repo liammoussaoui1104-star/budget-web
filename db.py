@@ -159,6 +159,7 @@ class DB:
         """Add new columns to existing tables without breaking live databases."""
         migrations = [
             "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0",
         ]
         for sql in migrations:
             try:
@@ -425,6 +426,26 @@ class DB:
 
     def mark_message_lu(self, msg_id):
         self._run("UPDATE contact_messages SET lu=1 WHERE id=?", (msg_id,))
+
+    # ── Admin ──────────────────────────────────────────────────────────────
+
+    def get_admin_stats(self):
+        total = self._run("SELECT COUNT(*) as c FROM users", fetch="one")["c"]
+        blocked = self._run("SELECT COUNT(*) as c FROM users WHERE blocked=1", fetch="one")["c"]
+        active = self._run("SELECT COUNT(DISTINCT user_id) as c FROM members", fetch="one")["c"]
+        return {"total": total, "blocked": blocked, "active": active}
+
+    def get_all_users(self):
+        return self._run(
+            "SELECT id, email, household_name, is_admin, blocked, created_at FROM users ORDER BY id DESC",
+            fetch="all"
+        )
+
+    def block_user(self, uid):
+        self._run("UPDATE users SET blocked=1 WHERE id=?", (uid,))
+
+    def unblock_user(self, uid):
+        self._run("UPDATE users SET blocked=0 WHERE id=?", (uid,))
 
     # ── Reset tokens ───────────────────────────────────────────────────────
 
