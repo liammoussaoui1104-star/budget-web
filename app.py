@@ -129,6 +129,10 @@ def register():
             flash("Cet email est déjà utilisé.", "error")
             return render_template("register.html")
         session["pending_uid"] = uid
+        try:
+            _send_welcome_email(email, household)
+        except Exception as e:
+            app.logger.error("Brevo welcome email error: %s", e)
         return redirect(url_for("setup"))
     return render_template("register.html")
 
@@ -670,6 +674,60 @@ def admin_mark_lu(msg_id):
     return jsonify(ok=True)
 
 
+@app.route("/admin/send_email", methods=["POST"])
+@login_required
+def admin_send_email():
+    if not current_user.is_admin:
+        return jsonify(ok=False), 403
+    import requests as _req
+
+    data = request.get_json() or {}
+    subject = (data.get("subject") or "").strip()
+    html_content = (data.get("html_content") or "").strip()
+    target = data.get("target", "all")
+    specific_email = (data.get("specific_email") or "").strip()
+
+    if not subject or not html_content:
+        return jsonify(ok=False, error="Objet et corps de l'email sont requis."), 400
+
+    api_key = os.environ.get("BREVO_API_KEY", "")
+    from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
+
+    if target == "specific":
+        if not specific_email:
+            return jsonify(ok=False, error="Adresse email requise."), 400
+        recipients = [specific_email]
+    else:
+        all_users = db.get_all_users()
+        recipients = [u["email"] for u in all_users if u["email"]]
+
+    sent = 0
+    failed = 0
+    errors = []
+
+    for email_addr in recipients:
+        payload = {
+            "sender": {"email": from_email, "name": "Budget Familial"},
+            "to": [{"email": email_addr}],
+            "subject": subject,
+            "htmlContent": html_content,
+        }
+        try:
+            resp = _req.post(
+                "https://api.brevo.com/v3/smtp/email",
+                json=payload,
+                headers={"api-key": api_key, "Content-Type": "application/json"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            sent += 1
+        except Exception as e:
+            failed += 1
+            errors.append(f"{email_addr}: {str(e)[:100]}")
+
+    return jsonify(ok=True, sent=sent, failed=failed, errors=errors)
+
+
 # ── Guide ──────────────────────────────────────────────────────────────────
 
 @app.route("/guide")
@@ -683,6 +741,103 @@ def guide():
         y=y, m=m, mois_fr=MOIS_FR[m],
         py=py, pm=pm, ny=ny, nm=nm
     )
+
+
+# ── Emails transactionnels ─────────────────────────────────────────────────
+
+def _send_welcome_email(to_email, household_name):
+    import requests as _req
+    api_key = os.environ.get("BREVO_API_KEY", "")
+    from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
+    html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 16px">
+  <tr><td align="center">
+    <table width="100%" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+
+      <!-- Header -->
+      <tr>
+        <td style="background:linear-gradient(135deg,#1e3a5f 0%,#2563a8 100%);padding:36px 40px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-.5px">Budget Familial</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:6px">Gérez votre budget en toute sérénité</div>
+        </td>
+      </tr>
+
+      <!-- Body -->
+      <tr>
+        <td style="padding:40px 40px 32px">
+          <p style="margin:0 0 20px;font-size:22px;font-weight:600;color:#1e3a5f">
+            Bienvenue, {household_name}&nbsp;! 🎉
+          </p>
+          <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">
+            Merci d'avoir rejoint <strong>Budget Familial</strong>. Ton foyer est maintenant configuré et prêt à gérer vos finances en toute simplicité.
+          </p>
+          <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">
+            L'application va continuer à évoluer grâce aux retours des utilisateurs comme toi. Chaque suggestion compte et contribue à rendre l'expérience meilleure pour tous les foyers.
+          </p>
+          <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.7">
+            Et bonne nouvelle : <strong>Budget Familial sera bientôt disponible sur App Store et Play Store</strong> pour encore plus de praticité au quotidien. Reste connecté !
+          </p>
+
+          <!-- CTA Guide -->
+          <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px">
+            <tr>
+              <td align="center">
+                <a href="https://budget-web-38nm.onrender.com/guide"
+                   style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px">
+                  📖 Consulter le guide d'utilisation
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          <!-- CTA Contact -->
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td align="center">
+                <a href="https://budget-web-38nm.onrender.com/contact"
+                   style="display:inline-block;background:#f8fafc;color:#2563a8;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;border:1.5px solid #2563a8">
+                  ✉️ Envoyer une suggestion
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Divider -->
+      <tr><td style="padding:0 40px"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0"></td></tr>
+
+      <!-- Footer -->
+      <tr>
+        <td style="padding:24px 40px;text-align:center">
+          <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6">
+            Tu reçois cet email car tu viens de créer un compte sur Budget Familial.<br>
+            &copy; Anas.m — Budget Familial
+          </p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+    payload = {
+        "sender": {"email": from_email, "name": "Budget Familial"},
+        "to": [{"email": to_email}],
+        "subject": f"Bienvenue sur Budget Familial, {household_name} !",
+        "htmlContent": html,
+    }
+    resp = _req.post(
+        "https://api.brevo.com/v3/smtp/email",
+        json=payload,
+        headers={"api-key": api_key, "Content-Type": "application/json"},
+        timeout=10,
+    )
+    resp.raise_for_status()
 
 
 # ── Mot de passe oublié ────────────────────────────────────────────────────
