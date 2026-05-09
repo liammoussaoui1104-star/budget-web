@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Connexion — Budget Familial{% endblock %}
+
+{% block auth_content %}
+<div class="login-page">
+
+  <!-- Panneau gauche — marque -->
+  <div class="login-brand">
+    <div class="login-brand-inner">
+      <div class="login-logo-mark">
+        <span class="login-logo-icon">🏠</span>
+        <span class="login-logo-text">Budget Familial</span>
+      </div>
+
+      <p class="login-tagline">
+        Gérez les finances de votre foyer en toute clarté.
+        Revenus, dépenses, budgets et épargne — tout centralisé,
+        toujours à portée de main.
+      </p>
+
+      <ul class="login-features" role="list">
+        <li>
+          <span class="login-feat-dot"></span>
+          Tableau de bord mensuel par membre
+        </li>
+        <li>
+          <span class="login-feat-dot"></span>
+          Suivi des budgets par catégorie
+        </li>
+        <li>
+          <span class="login-feat-dot"></span>
+          Statistiques et évolution sur 6 mois
+        </li>
+        <li>
+          <span class="login-feat-dot"></span>
+          Export PDF des rapports
+        </li>
+      </ul>
+
+      <div class="login-privacy-note">
+        <span class="login-privacy-icon" aria-hidden="true">🔒</span>
+        <p>
+          Vos données sont strictement confidentielles et
+          visibles uniquement par le titulaire du compte.
+          Aucune donnée n'est partagée ou revendue.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panneau droit — formulaire -->
+  <div class="login-form-side">
+    <div class="login-form-inner">
+
+      <div class="login-form-header">
+        <h1 class="login-form-title">Connexion</h1>
+        <p class="login-form-sub">Accède à ton espace familial</p>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for cat, msg in messages %}
+            <div class="flash flash-{{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login') }}" class="login-form" novalidate>
+        <div class="form-group">
+          <label for="email">Adresse email</label>
+          <input type="email" id="email" name="email" required
+                 autocomplete="email" placeholder="ton@email.fr"
+                 spellcheck="false">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" name="password" required
+                 autocomplete="current-password" placeholder="••••••••">
+        </div>
+
+        <label class="checkbox-label">
+          <input type="checkbox" name="remember">
+          Se souvenir de moi
+        </label>
+
+        <button type="submit" class="btn btn-primary btn-full login-submit">
+          Se connecter
+        </button>
+      </form>
+
+      <p class="login-register-link">
+        Pas encore de compte ?
+        <a href="{{ url_for('register') }}">Créer un espace familial</a>
+      </p>
+
+      <p class="login-signature">© Anas.m</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

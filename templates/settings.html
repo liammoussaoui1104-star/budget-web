@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}Paramètres — Budget Familial{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Paramètres</h2>
+</div>
+
+<!-- Revenus du mois -->
+<div class="card settings-section">
+  <div class="card-title">Revenus — {{ mois_fr }} {{ y }}</div>
+  <p class="settings-desc">Renseigne les salaires/revenus de chaque parent pour ce mois. Le montant remplace l'ancien, il ne se cumule pas.</p>
+  <form id="formSalaires">
+    <div class="settings-grid">
+      {% for p in payers %}
+      <div class="form-group">
+        <label>
+          <span class="dot" style="background:{{ p.color }}"></span>
+          {{ p.name }} (€)
+        </label>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input type="number" name="sal_{{ p.id }}" step="0.01" min="0"
+                 value="{{ salaires.get(p.name, 0) }}" placeholder="0,00"
+                 data-key="sal_{{ p.id }}" style="flex:1">
+          <button type="button" class="btn btn-sm btn-outline"
+                  onclick="resetSalaire({{ p.id }}, this)"
+                  title="Remettre à zéro">Réinitialiser</button>
+        </div>
+      </div>
+      {% endfor %}
+      {% if not payers %}
+      <p class="empty-state">Aucun parent configuré. Ajoute des membres avec le rôle Parent ci-dessous.</p>
+      {% endif %}
+    </div>
+    {% if payers %}
+    <button type="submit" class="btn btn-primary">Enregistrer les revenus</button>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Budgets par catégorie -->
+<div class="card settings-section">
+  <div class="card-title">Plafonds budgétaires</div>
+  <p class="settings-desc">Définis les plafonds de dépenses par catégorie. Laisse à 0 pour ne pas surveiller.</p>
+  <form id="formBudgets">
+    <div class="settings-grid-2">
+      {% for cat in CATS %}
+      <div class="form-group">
+        <label>{{ cat }}</label>
+        <input type="number" step="0.01" min="0"
+               value="{{ budgets.get(cat, 0) }}"
+               data-key="budget_{{ cat }}"
+               placeholder="0,00">
+      </div>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary">Enregistrer les budgets</button>
+  </form>
+</div>
+
+<!-- Reconduire les charges fixes -->
+<div class="card settings-section">
+  <div class="card-title">Charges fixes</div>
+  <p class="settings-desc">
+    Reporte automatiquement les charges fixes du mois précédent
+    (<strong>{{ pm }}/{{ py }}</strong>) vers <strong>{{ mois_fr }} {{ y }}</strong>,
+    uniquement si elles n'existent pas encore.
+  </p>
+  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+    <button class="btn btn-outline" id="btnReconduire">Reconduire les charges fixes</button>
+    <span class="reconduire-result hidden" id="reconduireResult"></span>
+  </div>
+</div>
+
+<!-- Profil du foyer -->
+<div class="card settings-section">
+  <div class="card-title">Profil du foyer</div>
+  <form id="formHousehold">
+    <div class="form-group">
+      <label>Nom du foyer</label>
+      <input type="text" id="householdName" name="household_name"
+             value="{{ household }}" placeholder="Famille Dupont" required>
+    </div>
+
+    <div class="members-section">
+      <div class="members-header">
+        <span class="label-text">Membres</span>
+        <button type="button" class="btn btn-sm btn-outline" id="addMemberBtnSettings">+ Ajouter</button>
+      </div>
+      <div class="members-hint">
+        ⚠ Modifier les membres supprime les associations existantes sur les dépenses.<br>
+        <strong>Parent</strong> = peut payer une dépense ET apparaît dans "Pour qui ?". <strong>Enfant</strong> = uniquement dans "Pour qui ?".
+      </div>
+      <div id="membersListSettings">
+        {% for mb in members %}
+        <div class="member-row" data-index="{{ loop.index0 }}">
+          <span class="dot" style="background:{{ mb.color }};flex-shrink:0"></span>
+          <input type="text" class="member-input-name" value="{{ mb.name }}" placeholder="Prénom" required>
+          <select class="member-input-role">
+            <option value="Parent" {% if mb.is_payer %}selected{% endif %}>Parent</option>
+            <option value="Enfant" {% if not mb.is_payer %}selected{% endif %}>Enfant</option>
+          </select>
+          <button type="button" class="btn-remove-member" onclick="removeMemberSettings(this)" title="Supprimer">✕</button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:1rem">Enregistrer le foyer</button>
+  </form>
+</div>
+
+<div id="toastMsg" class="toast hidden"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Réinitialiser un salaire
+async function resetSalaire(memberId, btn) {
+  if (!confirm('Remettre ce salaire à zéro ?')) return;
+  btn.disabled = true;
+  const res = await fetch('/api/salaires/reset', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ member_id: memberId })
+  });
+  const json = await res.json();
+  if (json.ok) {
+    const inp = btn.closest('.form-group').querySelector('input[type="number"]');
+    if (inp) inp.value = 0;
+    showToast('Salaire remis à zéro ✓');
+  } else {
+    showToast('Erreur : ' + (json.error || ''), false);
+  }
+  btn.disabled = false;
+}
+
+// Revenus
+document.getElementById('formSalaires').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {};
+  e.target.querySelectorAll('input[data-key]').forEach(inp => {
+    data[inp.dataset.key] = inp.value;
+  });
+  const res = await fetch('/api/salaires/save', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  showToast(json.ok ? 'Revenus enregistrés ✓' : ('Erreur : ' + (json.error || '')), json.ok);
+});
+
+// Budgets
+document.getElementById('formBudgets').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {};
+  e.target.querySelectorAll('input[data-key]').forEach(inp => {
+    data[inp.dataset.key] = inp.value;
+  });
+  const res = await fetch('/api/budgets/save', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  showToast(json.ok ? 'Budgets enregistrés ✓' : ('Erreur : ' + (json.error || '')), json.ok);
+});
+
+// Reconduire fixes
+document.getElementById('btnReconduire').addEventListener('click', async () => {
+  const btn = document.getElementById('btnReconduire');
+  btn.disabled = true;
+  btn.textContent = 'En cours…';
+  const res = await fetch('/settings/reconduire_fixes', { method: 'POST' });
+  const json = await res.json();
+  btn.disabled = false;
+  btn.textContent = 'Reconduire les charges fixes';
+  const el = document.getElementById('reconduireResult');
+  el.classList.remove('hidden');
+  if (json.ok) {
+    el.textContent = json.count > 0
+      ? `${json.count} charge(s) fixe(s) reconduite(s) ✓`
+      : 'Aucune charge manquante à reconduire.';
+    el.className = 'reconduire-result text-ok';
+  } else {
+    el.textContent = 'Erreur : ' + (json.error || '');
+    el.className = 'reconduire-result text-danger';
+  }
+});
+
+// Household members settings
+let settingsMemberCount = {{ members | length }};
+
+document.getElementById('addMemberBtnSettings').addEventListener('click', () => {
+  const idx = settingsMemberCount++;
+  const COLORS = ["#2563a8","#e07a30","#d99a3a","#7a9968","#9b59b6","#e74c3c","#1abc9c","#f39c12"];
+  const color = COLORS[idx % COLORS.length];
+  const div = document.createElement('div');
+  div.className = 'member-row';
+  div.dataset.index = idx;
+  div.innerHTML = `
+    <span class="dot" style="background:${color};flex-shrink:0"></span>
+    <input type="text" class="member-input-name" placeholder="Prénom" required>
+    <select class="member-input-role">
+      <option value="Parent">Parent</option>
+      <option value="Enfant">Enfant</option>
+    </select>
+    <button type="button" class="btn-remove-member" onclick="removeMemberSettings(this)" title="Supprimer">✕</button>
+  `;
+  document.getElementById('membersListSettings').appendChild(div);
+});
+
+function removeMemberSettings(btn) {
+  const rows = document.querySelectorAll('#membersListSettings .member-row');
+  if (rows.length <= 1) {
+    showToast('Il doit rester au moins un membre.', false);
+    return;
+  }
+  btn.closest('.member-row').remove();
+}
+
+document.getElementById('formHousehold').addEventListener('submit', async e => {
+  e.preventDefault();
+  const household_name = document.getElementById('householdName').value.trim();
+  if (!household_name) { showToast('Donne un nom au foyer.', false); return; }
+  const members = [];
+  document.querySelectorAll('#membersListSettings .member-row').forEach(row => {
+    const name = row.querySelector('.member-input-name').value.trim();
+    const role = row.querySelector('.member-input-role').value;
+    if (name) members.push({ name, role, is_payer: role === 'Payeur' });
+  });
+  if (members.length === 0) { showToast('Ajoute au moins un membre.', false); return; }
+
+  const res = await fetch('/api/household/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ household_name, members })
+  });
+  const json = await res.json();
+  showToast(json.ok ? 'Foyer enregistré ✓' : ('Erreur : ' + (json.error || '')), json.ok);
+  if (json.ok) setTimeout(() => location.reload(), 900);
+});
+
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toastMsg');
+  t.textContent = msg;
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-error');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = 'toast hidden'; }, 3500);
+}
+</script>
+{% endblock %}

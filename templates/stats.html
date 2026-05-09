@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Statistiques — {{ mois_fr }} {{ y }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Statistiques — {{ mois_fr }} {{ y }}</h2>
+  <button class="btn btn-outline" onclick="window.print()">Exporter PDF</button>
+</div>
+
+<!-- Metrics summary cards -->
+<div class="metrics-row">
+  <div class="metric-card metric-revenus">
+    <div class="metric-label">Revenus</div>
+    <div class="metric-value">{{ revenus | money }}</div>
+  </div>
+  <div class="metric-card metric-depenses">
+    <div class="metric-label">Dépenses totales</div>
+    <div class="metric-value">{{ total_dep | money }}</div>
+  </div>
+  <div class="metric-card {% if epargne >= 0 %}metric-epargne{% else %}metric-deficit{% endif %}">
+    <div class="metric-label">{% if epargne >= 0 %}Épargne{% else %}Déficit{% endif %}</div>
+    <div class="metric-value">{{ epargne | money }}</div>
+  </div>
+  {% if beneficiaires %}
+  <div class="metric-card" style="border-top:3px solid var(--accent)">
+    <div class="metric-label">Enfants / Bénéficiaires</div>
+    <div class="metric-value">{{ total_enfants | money }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Charges Fixes vs Variables -->
+<div class="metrics-row">
+  <div class="metric-card" style="border-top:3px solid var(--warn)">
+    <div class="metric-label">Charges fixes</div>
+    <div class="metric-value">{{ total_fixes | money }}</div>
+    {% if total_dep > 0 %}
+    <div class="metric-card-sub" style="font-size:.75rem;color:var(--sub);margin-top:.2rem">
+      {{ (total_fixes / total_dep * 100) | round(1) }}% du total
+    </div>
+    {% endif %}
+  </div>
+  <div class="metric-card" style="border-top:3px solid var(--ok)">
+    <div class="metric-label">Charges variables</div>
+    <div class="metric-value">{{ total_variables | money }}</div>
+    {% if total_dep > 0 %}
+    <div class="metric-card-sub" style="font-size:.75rem;color:var(--sub);margin-top:.2rem">
+      {{ (total_variables / total_dep * 100) | round(1) }}% du total
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Doughnut charts -->
+<div class="charts-row">
+  <div class="card chart-card">
+    <div class="card-title">Qui a payé ?</div>
+    {% if pie_payeur.data and pie_payeur.data|sum > 0 %}
+    <div class="chart-wrap"><canvas id="piePayeur"></canvas></div>
+    {% else %}
+    <p class="empty-state">Aucune dépense ce mois.</p>
+    {% endif %}
+  </div>
+  <div class="card chart-card">
+    <div class="card-title">Pour qui ?</div>
+    {% if pie_pour.data and pie_pour.data|sum > 0 %}
+    <div class="chart-wrap"><canvas id="piePour"></canvas></div>
+    {% else %}
+    <p class="empty-state">Aucune dépense ce mois.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Barres par catégorie (stackées) -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-title">Dépenses par catégorie</div>
+  {% set has_cat_data = cat_bar | selectattr('total', 'gt', 0) | list %}
+  {% if has_cat_data %}
+  <div class="chart-wrap chart-wrap-bar">
+    <canvas id="catBar"></canvas>
+  </div>
+  {% else %}
+  <p class="empty-state">Aucune dépense ce mois.</p>
+  {% endif %}
+</div>
+
+<!-- Évolution 6 derniers mois -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-title">Évolution — 6 derniers mois</div>
+  <div style="height:280px">
+    <canvas id="evolutionChart"></canvas>
+  </div>
+</div>
+
+<!-- Budgets par catégorie -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-title">Budgets par catégorie</div>
+  {% set has_budget = budget_bars | selectattr('plafond', 'gt', 0) | list %}
+  {% set has_spent = budget_bars | selectattr('spent', 'gt', 0) | list %}
+  {% if has_budget or has_spent %}
+  <div class="budget-list">
+    {% for b in budget_bars %}
+    {% if b.plafond > 0 or b.spent > 0 %}
+    <div class="budget-row">
+      <div class="budget-row-header">
+        <span class="budget-cat">{{ b.cat }}</span>
+        {% if b.over %}<span class="budget-warn-icon" title="Dépassement">⚠</span>{% endif %}
+        <span class="budget-amounts">
+          {{ b.spent | money }}
+          {% if b.plafond > 0 %} / {{ b.plafond | money }} ({{ b.pct | round | int }}%){% endif %}
+        </span>
+      </div>
+      {% if b.plafond > 0 %}
+      <div class="budget-bar-track">
+        <div class="budget-bar-fill budget-bar-{{ b.color }}" style="width: {{ b.pct }}%"></div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">Aucune donnée de budget ce mois.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmtMoney(val) {
+  val = parseFloat(val) || 0;
+  const [int, dec] = val.toFixed(2).split('.');
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${intFmt},${dec} €`;
+}
+
+{% if pie_payeur.data and pie_payeur.data|sum > 0 %}
+new Chart(document.getElementById('piePayeur'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ pie_payeur.labels | tojson }},
+    datasets: [{ data: {{ pie_payeur.data | tojson }}, backgroundColor: {{ pie_payeur.colors | tojson }}, borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmtMoney(ctx.parsed)}` } }
+    }
+  }
+});
+{% endif %}
+
+{% if pie_pour.data and pie_pour.data|sum > 0 %}
+new Chart(document.getElementById('piePour'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ pie_pour.labels | tojson }},
+    datasets: [{ data: {{ pie_pour.data | tojson }}, backgroundColor: {{ pie_pour.colors | tojson }}, borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmtMoney(ctx.parsed)}` } }
+    }
+  }
+});
+{% endif %}
+
+{% set has_cat_data = cat_bar | selectattr('total', 'gt', 0) | list %}
+{% if has_cat_data %}
+const catLabels = {{ cat_bar | map(attribute='cat') | list | tojson }};
+const payerColors = {{ payers | map(attribute='color') | list | tojson }};
+const payerNames = {{ payers | map(attribute='name') | list | tojson }};
+const catBarData = {{ cat_bar | tojson }};
+
+// Sort by total descending for better readability (top 13, all shown)
+const sortedCat = [...catBarData].sort((a, b) => b.total - a.total).filter(c => c.total > 0);
+
+const catDatasets = payerNames.map((name, i) => ({
+  label: name,
+  data: sortedCat.map(c => {
+    const found = c.payeurs.find(p => p.name === name);
+    return found ? found.val : 0;
+  }),
+  backgroundColor: payerColors[i],
+  borderRadius: 3,
+  borderWidth: 0
+}));
+
+new Chart(document.getElementById('catBar'), {
+  type: 'bar',
+  data: { labels: sortedCat.map(c => c.cat), datasets: catDatasets },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y',
+    scales: {
+      x: { stacked: true, grid: { color: '#f0ebe0' }, ticks: { callback: v => fmtMoney(v) } },
+      y: { stacked: true, grid: { display: false } }
+    },
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label} : ${fmtMoney(ctx.parsed.x)}` } }
+    }
+  }
+});
+{% endif %}
+
+// Évolution 6 mois
+const evoData = {{ evolution | tojson }};
+new Chart(document.getElementById('evolutionChart'), {
+  type: 'line',
+  data: {
+    labels: evoData.map(e => e.label),
+    datasets: [
+      {
+        label: 'Dépenses',
+        data: evoData.map(e => e.dep),
+        borderColor: '#c87a25',
+        backgroundColor: 'rgba(200,122,37,.08)',
+        tension: 0.35,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      },
+      {
+        label: 'Revenus',
+        data: evoData.map(e => e.rev),
+        borderColor: '#2563a8',
+        backgroundColor: 'rgba(37,99,168,.06)',
+        tension: 0.35,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      },
+      {
+        label: 'Épargne',
+        data: evoData.map(e => e.epargne),
+        borderColor: '#2f6d4a',
+        backgroundColor: 'rgba(47,109,74,.06)',
+        tension: 0.35,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderDash: [5, 3]
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        grid: { color: '#f0ebe0' },
+        ticks: { callback: v => fmtMoney(v) }
+      },
+      x: { grid: { display: false } }
+    },
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label} : ${fmtMoney(ctx.parsed.y)}` } }
+    }
+  }
+});
+</script>
+{% endblock %}

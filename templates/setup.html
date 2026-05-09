@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Configuration du foyer — Budget Familial{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page auth-page-wide">
+  <div class="auth-card auth-card-wide">
+    <div class="auth-logo">🏠</div>
+    <h1 class="auth-title">Membres du foyer</h1>
+    <p class="auth-sub">Étape 2 sur 2 — Ajoute les membres de ton foyer</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('setup') }}" class="auth-form" id="setupForm">
+      <div class="members-section">
+        <div class="members-header">
+          <span class="label-text">Membres du foyer</span>
+          <button type="button" class="btn btn-sm btn-outline" id="addMemberBtn">+ Ajouter</button>
+        </div>
+        <div class="members-hint">
+          <strong>Parent</strong> : peut payer une dépense ET apparaît dans "Pour qui ?".<br>
+          <strong>Enfant</strong> : apparaît uniquement dans "Pour qui ?".
+        </div>
+
+        <div id="membersList">
+          <div class="member-row" data-index="0">
+            <input type="text" name="member_name[]" placeholder="Prénom" required class="member-input-name">
+            <select name="member_role[]" class="member-input-role">
+              <option value="Parent">Parent</option>
+              <option value="Enfant">Enfant</option>
+            </select>
+            <button type="button" class="btn-remove-member" onclick="removeMember(this)" title="Supprimer">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full" style="margin-top:1.5rem">Créer le foyer →</button>
+    </form>
+  </div>
+</div>
+
+<script>
+let memberCount = 1;
+
+document.getElementById('addMemberBtn').addEventListener('click', function() {
+  const idx = memberCount++;
+  const div = document.createElement('div');
+  div.className = 'member-row';
+  div.dataset.index = idx;
+  div.innerHTML = `
+    <input type="text" name="member_name[]" placeholder="Prénom" required class="member-input-name">
+    <select name="member_role[]" class="member-input-role">
+      <option value="Parent">Parent</option>
+      <option value="Enfant">Enfant</option>
+    </select>
+    <button type="button" class="btn-remove-member" onclick="removeMember(this)" title="Supprimer">✕</button>
+  `;
+  document.getElementById('membersList').appendChild(div);
+});
+
+function removeMember(btn) {
+  const rows = document.querySelectorAll('.member-row');
+  if (rows.length <= 1) return;
+  btn.closest('.member-row').remove();
+}
+</script>
+{% endblock %}

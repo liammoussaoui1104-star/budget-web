@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Base de données SQLite — contient les données utilisateurs, ne jamais publier
+*.db
+*.db-shm
+*.db-wal
+
+# Variables d'environnement
+.env
+.env.*
+
+# Environnements virtuels
+venv/
+env/
+.venv/
+
+# Outils
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

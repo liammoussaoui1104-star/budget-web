@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ household }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="household-title">Budget Familial — {{ household }}</h1>
+    <h2 class="page-title">{{ mois_fr }} {{ y }}</h2>
+  </div>
+</div>
+
+<!-- Metrics row -->
+<div class="metrics-row">
+  <div class="metric-card metric-revenus">
+    <div class="metric-label">Revenus</div>
+    <div class="metric-value">{{ revenus | money }}</div>
+  </div>
+  <div class="metric-card metric-depenses">
+    <div class="metric-label">Dépenses</div>
+    <div class="metric-value">{{ total_dep | money }}</div>
+  </div>
+  <div class="metric-card {% if epargne >= 0 %}metric-epargne{% else %}metric-deficit{% endif %}">
+    <div class="metric-label">{% if epargne >= 0 %}Épargne{% else %}Déficit{% endif %}</div>
+    <div class="metric-value">{{ epargne | money }}</div>
+  </div>
+</div>
+
+<!-- Members cards -->
+<div class="section-title">Membres</div>
+<div class="member-cards-grid">
+  {% for mb in members %}
+  <div class="member-card" style="border-left: 4px solid {{ mb.color }}">
+    <div class="member-card-name" style="color:{{ mb.color }}">{{ mb.name }}</div>
+    {% if mb.is_payer %}
+    <div class="member-card-role">Parent</div>
+    <div class="member-card-dual">
+      <div class="member-card-dual-row">
+        <span class="member-card-dual-label">Payé ce mois</span>
+        <span class="member-card-dual-val">{{ totaux_payeur.get(mb.name, 0) | money }}</span>
+      </div>
+      <div class="member-card-dual-row member-card-dual-sub">
+        <span class="member-card-dual-label">Dépensé pour</span>
+        <span class="member-card-dual-val">{{ totaux_pour.get(mb.name, 0) | money }}</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="member-card-role">Enfant</div>
+    <div class="member-card-amount">{{ totaux_pour.get(mb.name, 0) | money }}</div>
+    <div class="member-card-sub">frais dédiés</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if not members %}
+  <p class="empty-state">Configure ton foyer dans les <a href="{{ url_for('settings') }}">paramètres</a>.</p>
+  {% endif %}
+</div>
+
+<!-- Charts row: donut + budget bars -->
+<div class="charts-row">
+  <div class="card chart-card">
+    <div class="card-title">Répartition des paiements</div>
+    {% if pie_data.data and pie_data.data|sum > 0 %}
+    <div class="chart-wrap">
+      <canvas id="piePayeur"></canvas>
+    </div>
+    {% else %}
+    <p class="empty-state">Aucune dépense ce mois.</p>
+    {% endif %}
+  </div>
+
+  <div class="card budget-card">
+    <div class="card-title">Budgets par catégorie</div>
+    {% set active_bars = budget_bars | selectattr("plafond", "gt", 0) | list %}
+    {% set unbudgeted = budget_bars | selectattr("plafond", "eq", 0) | selectattr("spent", "gt", 0) | list %}
+    {% if active_bars or unbudgeted %}
+    <div class="budget-list">
+      {% for b in active_bars %}
+      <div class="budget-row">
+        <div class="budget-row-header">
+          <span class="budget-cat">{{ b.cat }}</span>
+          {% if b.over %}<span class="budget-warn-icon" title="Dépassement de budget">⚠</span>{% endif %}
+          <span class="budget-amounts">{{ b.spent | money }} / {{ b.plafond | money }}</span>
+        </div>
+        <div class="budget-bar-track">
+          <div class="budget-bar-fill budget-bar-{{ b.color }}" style="width: {{ b.pct }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+      {% for b in unbudgeted %}
+      <div class="budget-row">
+        <div class="budget-row-header">
+          <span class="budget-cat">{{ b.cat }}</span>
+          <span class="budget-amounts" style="color:var(--sub)">{{ b.spent | money }} — pas de budget</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">Définis des budgets dans les <a href="{{ url_for('settings') }}">paramètres</a>.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Last 10 transactions -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-title">10 dernières transactions</div>
+  {% if last_dep %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Jour</th>
+          <th>Catégorie</th>
+          <th>Description</th>
+          <th>Payé par</th>
+          <th>Pour</th>
+          <th>Type</th>
+          <th class="text-right">Montant</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in last_dep %}
+        <tr>
+          <td>{{ d.jour }}</td>
+          <td><span class="tag">{{ d.categorie }}</span></td>
+          <td class="text-sub">{{ d.description or '—' }}</td>
+          <td>
+            <span class="dot" style="background:{{ color_map.get(d.personne, '#8a8d99') }}"></span>
+            {{ d.personne }}
+          </td>
+          <td>{{ d.pour_qui }}</td>
+          <td><span class="type-badge type-{{ d.type_dep | lower }}">{{ d.type_dep }}</span></td>
+          <td class="text-right amount">{{ d.montant | money }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-outline" style="margin-top:.75rem">Voir tout →</a>
+  {% else %}
+  <p class="empty-state">Aucune transaction ce mois. <a href="{{ url_for('transactions') }}">Ajouter →</a></p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if pie_data.data and pie_data.data|sum > 0 %}
+new Chart(document.getElementById('piePayeur'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ pie_data.labels | tojson }},
+    datasets: [{
+      data: {{ pie_data.data | tojson }},
+      backgroundColor: {{ pie_data.colors | tojson }},
+      borderWidth: 2,
+      borderColor: '#ffffff'
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 12 } },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) {
+            const val = ctx.parsed;
+            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+            const pct = total > 0 ? (val / total * 100).toFixed(1) : 0;
+            return ` ${ctx.label} : ${fmtMoney(val)} (${pct}%)`;
+          }
+        }
+      }
+    }
+  }
+});
+{% endif %}
+
+function fmtMoney(val) {
+  const [int, dec] = val.toFixed(2).split('.');
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${intFmt},${dec} €`;
+}
+</script>
+{% endblock %}

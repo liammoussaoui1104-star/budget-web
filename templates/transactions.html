@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}Transactions — {{ mois_fr }} {{ y }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Transactions — {{ mois_fr }} {{ y }}</h2>
+  <button class="btn btn-primary" id="btnOpenAdd">+ Ajouter</button>
+</div>
+
+<!-- Résumé -->
+<div class="metrics-row">
+  <div class="metric-card">
+    <div class="metric-label">Transactions</div>
+    <div class="metric-value" id="summaryCount">{{ depenses|length }}</div>
+  </div>
+  <div class="metric-card metric-depenses">
+    <div class="metric-label">Total</div>
+    <div class="metric-value" id="summaryTotal" data-raw="{{ total_dep }}">{{ total_dep | money }}</div>
+  </div>
+  {% for p in payers %}
+  <div class="metric-card" style="border-top: 3px solid {{ p.color }}">
+    <div class="metric-label" style="color:{{ p.color }}">{{ p.name }}</div>
+    <div class="metric-value">{{ totaux_payeur.get(p.name, 0) | money }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Barre bicolore payeurs -->
+{% if payers|length >= 2 and total_dep > 0 %}
+<div class="card" style="padding:.75rem 1rem; margin-bottom:1rem">
+  <div class="bicolor-bar">
+    {% for p in payers %}
+    {% set pct = (totaux_payeur.get(p.name, 0) / total_dep * 100) | round(1) %}
+    <div class="bicolor-segment" style="width:{{ pct }}%; background:{{ p.color }}" title="{{ p.name }} : {{ pct }}%"></div>
+    {% endfor %}
+  </div>
+  <div class="bicolor-legend">
+    {% for p in payers %}
+    {% set pct = (totaux_payeur.get(p.name, 0) / total_dep * 100) | round(1) %}
+    <span class="dot" style="background:{{ p.color }}"></span>
+    {{ p.name }} {{ pct }}%
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Filtres -->
+<div class="filters-bar card">
+  <select id="filterType" class="filter-select">
+    <option value="">Tous les types</option>
+    <option value="Fixe">Fixe</option>
+    <option value="Variable">Variable</option>
+  </select>
+  <select id="filterPaye" class="filter-select">
+    <option value="">Tous les payeurs</option>
+    {% for p in payers %}
+    <option value="{{ p.name }}">{{ p.name }}</option>
+    {% endfor %}
+  </select>
+  <select id="filterPour" class="filter-select">
+    <option value="">Pour qui</option>
+    <option value="Commun">Commun</option>
+    {% for mb in members %}
+    <option value="{{ mb.name }}">{{ mb.name }}</option>
+    {% endfor %}
+  </select>
+  <select id="filterCat" class="filter-select">
+    <option value="">Toutes catégories</option>
+    {% for c in CATS %}
+    <option value="{{ c }}">{{ c }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- Table -->
+<div class="card table-card">
+  {% if depenses %}
+  <div class="table-wrap">
+    <table class="table" id="depenseTable">
+      <thead>
+        <tr>
+          <th>Jour</th>
+          <th>Catégorie</th>
+          <th>Description</th>
+          <th>Payé par</th>
+          <th>Pour</th>
+          <th>Type</th>
+          <th class="text-right">Montant</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in depenses %}
+        <tr class="dep-row"
+            data-id="{{ d.id }}"
+            data-type="{{ d.type_dep }}"
+            data-paye="{{ d.personne }}"
+            data-pour="{{ d.pour_qui }}"
+            data-cat="{{ d.categorie }}"
+            data-jour="{{ d.jour }}"
+            data-montant="{{ d.montant }}"
+            data-desc="{{ d.description | default('', true) | e }}"
+        >
+          <td>{{ d.jour }}</td>
+          <td><span class="tag">{{ d.categorie }}</span></td>
+          <td class="text-sub">{{ d.description or '—' }}</td>
+          <td>
+            <span class="dot" style="background:{{ color_map.get(d.personne, '#8a8d99') }}"></span>
+            {{ d.personne }}
+          </td>
+          <td>{{ d.pour_qui }}</td>
+          <td><span class="type-badge type-{{ d.type_dep | lower }}">{{ d.type_dep }}</span></td>
+          <td class="text-right amount">{{ d.montant | money }}</td>
+          <td class="text-center">
+            <button class="btn-icon btn-edit" title="Modifier" onclick="openEdit(this)">✏️</button>
+            <button class="btn-icon btn-del" title="Supprimer" onclick="deleteDep({{ d.id }}, this)">🗑️</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="no-results hidden" id="noResults">Aucune transaction ne correspond aux filtres.</div>
+  {% else %}
+  <p class="empty-state" style="padding:1rem">Aucune transaction ce mois. Clique sur "+ Ajouter" pour commencer.</p>
+  {% endif %}
+</div>
+
+<!-- Modal ajout -->
+<div class="modal-overlay hidden" id="modalAdd">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Nouvelle transaction</span>
+      <button class="modal-close" onclick="closeModal('modalAdd')">✕</button>
+    </div>
+    <form id="formAdd" class="modal-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Montant (€)</label>
+          <input type="number" name="montant" step="0.01" min="0.01" required placeholder="0,00">
+        </div>
+        <div class="form-group">
+          <label>Jour</label>
+          <input type="number" name="jour" id="addJour" min="1" max="31" required value="{{ now_day }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select name="categorie" required>
+            {% for c in CATS %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select name="type_dep">
+            <option value="Variable">Variable</option>
+            <option value="Fixe">Fixe</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" name="description" placeholder="Optionnel">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Payé par</label>
+          <select name="personne" required>
+            {% for p in payers %}
+            <option value="{{ p.name }}">{{ p.name }}</option>
+            {% endfor %}
+            {% if not payers %}
+            <option value="">— Aucun payeur configuré —</option>
+            {% endif %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Pour qui</label>
+          <select name="pour_qui">
+            <option value="Commun">Commun</option>
+            {% for mb in members %}
+            <option value="{{ mb.name }}">{{ mb.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modalAdd')">Annuler</button>
+        <button type="submit" class="btn btn-primary">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal édition -->
+<div class="modal-overlay hidden" id="modalEdit">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Modifier la transaction</span>
+      <button class="modal-close" onclick="closeModal('modalEdit')">✕</button>
+    </div>
+    <form id="formEdit" class="modal-form">
+      <input type="hidden" name="dep_id" id="editDepId">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Montant (€)</label>
+          <input type="number" name="montant" id="editMontant" step="0.01" min="0.01" required>
+        </div>
+        <div class="form-group">
+          <label>Jour</label>
+          <input type="number" name="jour" id="editJour" min="1" max="31" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select name="categorie" id="editCat" required>
+            {% for c in CATS %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select name="type_dep" id="editType">
+            <option value="Variable">Variable</option>
+            <option value="Fixe">Fixe</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" name="description" id="editDesc" placeholder="Optionnel">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Payé par</label>
+          <select name="personne" id="editPersonne" required>
+            {% for p in payers %}
+            <option value="{{ p.name }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Pour qui</label>
+          <select name="pour_qui" id="editPour">
+            <option value="Commun">Commun</option>
+            {% for mb in members %}
+            <option value="{{ mb.name }}">{{ mb.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modalEdit')">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toastMsg" class="toast hidden"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmtMoney(val) {
+  val = parseFloat(val) || 0;
+  const [int, dec] = val.toFixed(2).split('.');
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${intFmt},${dec} €`;
+}
+
+// Open/close modals
+document.getElementById('btnOpenAdd').addEventListener('click', () => {
+  document.getElementById('modalAdd').classList.remove('hidden');
+});
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+document.getElementById('modalAdd').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal('modalAdd');
+});
+document.getElementById('modalEdit').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal('modalEdit');
+});
+
+// Add transaction
+document.getElementById('formAdd').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd.entries());
+  const res = await fetch('/api/depense/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (json.ok) {
+    showToast('Transaction ajoutée ✓');
+    setTimeout(() => location.reload(), 600);
+  } else {
+    showToast('Erreur : ' + (json.error || 'inconnue'), false);
+  }
+});
+
+// Edit transaction
+function openEdit(btn) {
+  const row = btn.closest('tr');
+  document.getElementById('editDepId').value = row.dataset.id;
+  document.getElementById('editMontant').value = row.dataset.montant;
+  document.getElementById('editJour').value = row.dataset.jour;
+  document.getElementById('editCat').value = row.dataset.cat;
+  document.getElementById('editType').value = row.dataset.type;
+  document.getElementById('editDesc').value = row.dataset.desc;
+  document.getElementById('editPersonne').value = row.dataset.paye;
+  document.getElementById('editPour').value = row.dataset.pour;
+  document.getElementById('modalEdit').classList.remove('hidden');
+}
+
+document.getElementById('formEdit').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd.entries());
+  const id = data.dep_id;
+  const res = await fetch(`/api/depense/${id}/edit`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (json.ok) {
+    showToast('Modifié ✓');
+    setTimeout(() => location.reload(), 600);
+  } else {
+    showToast('Erreur : ' + (json.error || 'inconnue'), false);
+  }
+});
+
+// Delete transaction
+async function deleteDep(id, btn) {
+  if (!confirm('Supprimer cette transaction ?')) return;
+  const res = await fetch(`/api/depense/${id}/delete`, { method: 'POST' });
+  const json = await res.json();
+  if (json.ok) {
+    btn.closest('tr').remove();
+    updateSummary();
+    showToast('Supprimé ✓');
+  } else {
+    showToast('Erreur lors de la suppression.', false);
+  }
+}
+
+// Filters
+['filterType','filterPaye','filterPour','filterCat'].forEach(f =>
+  document.getElementById(f).addEventListener('change', applyFilters)
+);
+
+function applyFilters() {
+  const type = document.getElementById('filterType').value;
+  const paye = document.getElementById('filterPaye').value;
+  const pour = document.getElementById('filterPour').value;
+  const cat = document.getElementById('filterCat').value;
+  let count = 0, total = 0;
+  document.querySelectorAll('.dep-row').forEach(row => {
+    const show = (!type || row.dataset.type === type)
+              && (!paye || row.dataset.paye === paye)
+              && (!pour || row.dataset.pour === pour)
+              && (!cat || row.dataset.cat === cat);
+    row.style.display = show ? '' : 'none';
+    if (show) { count++; total += parseFloat(row.dataset.montant); }
+  });
+  document.getElementById('summaryCount').textContent = count;
+  document.getElementById('summaryTotal').textContent = fmtMoney(total);
+  const noRes = document.getElementById('noResults');
+  if (noRes) noRes.classList.toggle('hidden', count > 0 || document.querySelectorAll('.dep-row').length === 0);
+}
+
+function updateSummary() {
+  let count = 0, total = 0;
+  document.querySelectorAll('.dep-row').forEach(row => {
+    if (row.style.display !== 'none') {
+      count++;
+      total += parseFloat(row.dataset.montant);
+    }
+  });
+  document.getElementById('summaryCount').textContent = count;
+  document.getElementById('summaryTotal').textContent = fmtMoney(total);
+}
+
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toastMsg');
+  t.textContent = msg;
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-error');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = 'toast hidden'; }, 3000);
+}
+</script>
+{% endblock %}

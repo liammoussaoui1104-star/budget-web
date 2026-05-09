@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Budget Familial{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏠</span>
+        <span class="logo-text">{{ current_user.household_name or 'Mon Foyer' }}</span>
+      </div>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Fermer">✕</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a href="{{ url_for('transactions') }}" class="nav-link {% if request.endpoint == 'transactions' %}active{% endif %}">
+        <span class="nav-icon">💳</span> Transactions
+      </a>
+      <a href="{{ url_for('stats') }}" class="nav-link {% if request.endpoint == 'stats' %}active{% endif %}">
+        <span class="nav-icon">📈</span> Statistiques
+      </a>
+      <a href="{{ url_for('settings') }}" class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}">
+        <span class="nav-icon">⚙️</span> Paramètres
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="user-email">{{ current_user.email }}</span>
+      <a href="{{ url_for('logout') }}" class="btn-logout">Déconnexion</a>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Main content -->
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+
+      <!-- Period selector -->
+      <div class="period-selector">
+        <a href="#" class="period-nav" data-y="{{ py }}" data-m="{{ pm }}">&#8249;</a>
+        <span class="period-label">{{ mois_fr }} {{ y }}</span>
+        <a href="#" class="period-nav" data-y="{{ ny }}" data-m="{{ nm }}">&#8250;</a>
+      </div>
+
+      <div class="topbar-right">
+        <span class="topbar-household">{{ current_user.household_name or '' }}</span>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for cat, msg in messages %}
+            <div class="flash flash-{{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="page-content">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
