@@ -689,14 +689,28 @@ img { display: block; max-width: 100%; }
 .login-brand {
   flex: 1.05;
   background: oklch(38% 0.14 258);
+  background-image: url('/static/hero.jpg');
+  background-size: cover;
+  background-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 3.5rem 3rem;
+  position: relative;
+  overflow: hidden;
+}
+.login-brand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: oklch(30% 0.13 258 / 0.84);
+  z-index: 0;
 }
 .login-brand-inner {
   max-width: 380px;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 .login-logo-mark {
   display: flex;
