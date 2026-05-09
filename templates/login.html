@@ -74,7 +74,10 @@
         </div>
 
         <div class="form-group">
-          <label for="password">Mot de passe</label>
+          <div class="login-pwd-header">
+            <label for="password">Mot de passe</label>
+            <a href="{{ url_for('forgot_password') }}" class="login-forgot-link">Mot de passe oublié ?</a>
+          </div>
           <input type="password" id="password" name="password" required
                  autocomplete="current-password" placeholder="••••••••">
         </div>

@@ -1,11 +1,12 @@
 import os
+import secrets
+from datetime import datetime, timedelta
 from flask import (Flask, render_template, redirect, url_for, request,
                    session, jsonify, flash)
 from flask_login import (LoginManager, UserMixin, login_user, logout_user,
                          login_required, current_user)
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import DB, CATS, MEMBER_COLORS
-from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production-xyz987")
@@ -582,6 +583,89 @@ def admin_mark_lu(msg_id):
         return jsonify(ok=False), 403
     db.mark_message_lu(msg_id)
     return jsonify(ok=True)
+
+
+# ── Mot de passe oublié ────────────────────────────────────────────────────
+
+def _send_reset_email(to_email, reset_url):
+    import requests as _req
+    api_key = os.environ.get("BREVO_API_KEY", "")
+    from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
+    payload = {
+        "sender": {"email": from_email, "name": "Budget Familial"},
+        "to": [{"email": to_email}],
+        "subject": "Réinitialisation de ton mot de passe — Budget Familial",
+        "htmlContent": (
+            "<p>Bonjour,</p>"
+            "<p>Tu as demandé à réinitialiser ton mot de passe.</p>"
+            f'<p><a href="{reset_url}" style="color:#2563a8">Cliquer ici pour choisir un nouveau mot de passe</a></p>'
+            f"<p>Ou copie ce lien dans ton navigateur :<br><code>{reset_url}</code></p>"
+            "<p>Ce lien est valable <strong>1 heure</strong>. "
+            "Si tu n'es pas à l'origine de cette demande, ignore cet email.</p>"
+            "<p>— Budget Familial</p>"
+        )
+    }
+    resp = _req.post(
+        "https://api.brevo.com/v3/smtp/email",
+        json=payload,
+        headers={"api-key": api_key, "Content-Type": "application/json"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        user = db.get_user_by_email(email)
+        if user:
+            token = secrets.token_urlsafe(32)
+            db.create_reset_token(user["id"], token)
+            reset_url = url_for("reset_password", token=token, _external=True)
+            try:
+                _send_reset_email(email, reset_url)
+            except Exception as e:
+                app.logger.error("Brevo error: %s", e)
+        # Same redirect whether email exists or not (avoids user enumeration)
+        return redirect(url_for("forgot_password_sent"))
+    return render_template("forgot_password.html")
+
+
+@app.route("/forgot-password/sent")
+def forgot_password_sent():
+    return render_template("forgot_password_sent.html")
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    token_row = db.get_reset_token(token)
+    if not token_row or token_row["used"]:
+        flash("Lien invalide ou déjà utilisé.", "error")
+        return redirect(url_for("forgot_password"))
+
+    created_at = datetime.strptime(token_row["created_at"][:19], "%Y-%m-%d %H:%M:%S")
+    if datetime.now() - created_at > timedelta(hours=1):
+        flash("Ce lien a expiré. Fais une nouvelle demande.", "error")
+        return redirect(url_for("forgot_password"))
+
+    if request.method == "POST":
+        pwd = request.form.get("password", "")
+        pwd2 = request.form.get("password2", "")
+        if len(pwd) < 6:
+            flash("Mot de passe trop court (6 caractères min).", "error")
+            return render_template("reset_password.html", token=token)
+        if pwd != pwd2:
+            flash("Les mots de passe ne correspondent pas.", "error")
+            return render_template("reset_password.html", token=token)
+        db.update_password(token_row["user_id"], generate_password_hash(pwd))
+        db.invalidate_reset_token(token)
+        flash("Mot de passe mis à jour. Tu peux te connecter.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html", token=token)
 
 
 if __name__ == "__main__":
