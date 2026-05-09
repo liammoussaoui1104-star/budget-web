@@ -559,6 +559,10 @@ def contact():
             flash("Nom, email et message sont requis.", "error")
             return render_template("contact.html")
         db.add_contact_message(nom, email, telephone, message)
+        try:
+            _send_contact_notification(nom, email, telephone, message)
+        except Exception as e:
+            app.logger.error("Brevo contact notification error: %s", e)
         flash("Message envoyé ! Nous te répondrons dès que possible.", "success")
         return redirect(url_for("contact"))
     return render_template("contact.html")
@@ -603,6 +607,35 @@ def _send_reset_email(to_email, reset_url):
             "<p>Ce lien est valable <strong>1 heure</strong>. "
             "Si tu n'es pas à l'origine de cette demande, ignore cet email.</p>"
             "<p>— Budget Familial</p>"
+        )
+    }
+    resp = _req.post(
+        "https://api.brevo.com/v3/smtp/email",
+        json=payload,
+        headers={"api-key": api_key, "Content-Type": "application/json"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+
+
+def _send_contact_notification(nom, email, telephone, message):
+    import requests as _req
+    api_key = os.environ.get("BREVO_API_KEY", "")
+    from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
+    tel_line = f"<p><strong>Téléphone :</strong> {telephone}</p>" if telephone else ""
+    payload = {
+        "sender": {"email": from_email, "name": "Budget Familial"},
+        "to": [{"email": "liammoussaoui1104@gmail.com", "name": "Anas"}],
+        "replyTo": {"email": email, "name": nom},
+        "subject": f"Nouveau message de contact — {nom}",
+        "htmlContent": (
+            "<p>Tu as reçu un nouveau message via le formulaire de contact.</p>"
+            f"<p><strong>Nom :</strong> {nom}</p>"
+            f"<p><strong>Email :</strong> {email}</p>"
+            f"{tel_line}"
+            f"<p><strong>Message :</strong></p>"
+            f"<blockquote style='border-left:3px solid #ccc;margin:0;padding:0 1em;color:#555'>{message}</blockquote>"
+            "<p style='color:#999;font-size:.85em'>— Budget Familial</p>"
         )
     }
     resp = _req.post(
