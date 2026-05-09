@@ -16,7 +16,7 @@
       <div class="form-group">
         <label>
           <span class="dot" style="background:{{ p.color }}"></span>
-          {{ p.name }} (€)
+          {{ p.name }} ({{ currency }})
         </label>
         <div style="display:flex;gap:.5rem;align-items:center">
           <input type="number" name="sal_{{ p.id }}" step="0.01" min="0"
@@ -72,6 +72,23 @@
   </div>
 </div>
 
+<!-- Devise du foyer -->
+<div class="card settings-section">
+  <div class="card-title">Devise du foyer</div>
+  <p class="settings-desc">Choisit la devise affichée partout dans l'application (dashboard, transactions, statistiques, export PDF).</p>
+  <form id="formCurrency">
+    <div class="form-group" style="max-width:300px">
+      <label>Devise</label>
+      <select id="selectCurrency" name="currency">
+        {% for c in CURRENCIES %}
+        <option value="{{ c.symbol }}" {% if c.symbol == currency %}selected{% endif %}>{{ c.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Enregistrer la devise</button>
+  </form>
+</div>
+
 <!-- Profil du foyer -->
 <div class="card settings-section">
   <div class="card-title">Profil du foyer</div>
@@ -114,6 +131,24 @@
 
 {% block scripts %}
 <script>
+// Devise
+document.getElementById('formCurrency').addEventListener('submit', async e => {
+  e.preventDefault();
+  const currency = document.getElementById('selectCurrency').value;
+  const res = await fetch('/api/currency/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ currency })
+  });
+  const json = await res.json();
+  if (json.ok) {
+    showToast('Devise enregistrée ✓');
+    setTimeout(() => location.reload(), 900);
+  } else {
+    showToast('Erreur : ' + (json.error || ''), false);
+  }
+});
+
 // Réinitialiser un salaire
 async function resetSalaire(memberId, btn) {
   if (!confirm('Remettre ce salaire à zéro ?')) return;

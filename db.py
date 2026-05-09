@@ -160,6 +160,7 @@ class DB:
         migrations = [
             "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN currency TEXT DEFAULT '€'",
         ]
         for sql in migrations:
             try:
@@ -446,6 +447,9 @@ class DB:
 
     def unblock_user(self, uid):
         self._run("UPDATE users SET blocked=0 WHERE id=?", (uid,))
+
+    def set_currency(self, uid, symbol):
+        self._run("UPDATE users SET currency=? WHERE id=?", (symbol, uid))
 
     # ── Reset tokens ───────────────────────────────────────────────────────
 

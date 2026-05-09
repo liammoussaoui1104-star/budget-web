@@ -20,6 +20,23 @@ db = DB()
 MOIS_FR = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
            "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
+CURRENCIES = [
+    {"symbol": "€",   "label": "🇫🇷 Euro — €"},
+    {"symbol": "MAD", "label": "🇲🇦 Dirham marocain — MAD"},
+    {"symbol": "DZD", "label": "🇩🇿 Dinar algérien — DZD"},
+    {"symbol": "TND", "label": "🇹🇳 Dinar tunisien — TND"},
+    {"symbol": "XOF", "label": "🇸🇳 Franc CFA — XOF"},
+    {"symbol": "£",   "label": "🇬🇧 Livre sterling — £"},
+    {"symbol": "CHF", "label": "🇨🇭 Franc suisse — CHF"},
+    {"symbol": "$",   "label": "🇺🇸 Dollar américain — $"},
+    {"symbol": "CAD", "label": "🇨🇦 Dollar canadien — CAD"},
+    {"symbol": "AED", "label": "🇦🇪 Dirham émirati — AED"},
+    {"symbol": "SAR", "label": "🇸🇦 Riyal saoudien — SAR"},
+    {"symbol": "TRY", "label": "🇹🇷 Livre turque — TRY"},
+]
+
+_VALID_CURRENCIES = {c["symbol"] for c in CURRENCIES}
+
 
 class User(UserMixin):
     def __init__(self, row):
@@ -27,6 +44,7 @@ class User(UserMixin):
         self.email = row["email"]
         self.household_name = row["household_name"]
         self.is_admin = bool(row["is_admin"]) if "is_admin" in row.keys() else False
+        self.currency = row["currency"] if "currency" in row.keys() and row["currency"] else "€"
 
 
 @login_manager.user_loader
@@ -59,23 +77,25 @@ def next_period(y, m):
 
 
 def fmt_money(val):
-    """Format number as French-style: 1 234,56 €"""
+    """Format number as French-style: 1 234,56 <devise>"""
     try:
         val = float(val)
     except (TypeError, ValueError):
         val = 0.0
-    # format with 2 decimals, French style thousands separator
     parts = f"{val:.2f}".split(".")
     integer = parts[0]
     decimals = parts[1]
-    # add space every 3 digits from right
     if len(integer) > 3:
         groups = []
         while integer:
             groups.append(integer[-3:])
             integer = integer[:-3]
         integer = " ".join(reversed(groups))
-    return f"{integer},{decimals} €"
+    try:
+        symbol = current_user.currency if current_user.is_authenticated else "€"
+    except Exception:
+        symbol = "€"
+    return f"{integer},{decimals} {symbol}"
 
 
 app.jinja_env.filters["money"] = fmt_money
@@ -390,7 +410,9 @@ def settings():
         members=members, payers=payers,
         salaires=salaires, budgets=budgets, CATS=CATS,
         color_map=color_map,
-        household=current_user.household_name
+        household=current_user.household_name,
+        currency=current_user.currency,
+        CURRENCIES=CURRENCIES,
     )
 
 
@@ -483,6 +505,24 @@ def api_budgets_save():
             key = f"budget_{cat}"
             if key in data:
                 db.set_budget(uid, cat, float(data[key] or 0))
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
+# ── API Currency ──────────────────────────────────────────────────────────
+
+@app.route("/api/currency/save", methods=["POST"])
+@login_required
+def api_currency_save():
+    uid = current_user.id
+    try:
+        data = request.get_json() or {}
+        symbol = data.get("currency", "€").strip()
+        if symbol not in _VALID_CURRENCIES:
+            return jsonify(ok=False, error="Devise invalide"), 400
+        db.set_currency(uid, symbol)
+        current_user.currency = symbol
         return jsonify(ok=True)
     except Exception as e:
         return jsonify(ok=False, error=str(e)), 400
