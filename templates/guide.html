@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}Guide d'utilisation — Budget Familial{% endblock %}
+
+{% block content %}
+<div class="guide-page" id="guidePage">
+
+  <div class="guide-hero">
+    <div class="guide-hero-inner">
+      <div class="guide-hero-icon">📖</div>
+      <div>
+        <h1 class="guide-hero-title">Guide d'utilisation</h1>
+        <p class="guide-hero-sub">Tout ce qu'il faut savoir pour gérer le budget de ton foyer.</p>
+      </div>
+    </div>
+    <button class="btn btn-outline guide-pdf-btn" onclick="exportPDF()" id="pdfBtn">
+      <span class="guide-pdf-icon">⬇️</span> Télécharger en PDF
+    </button>
+  </div>
+
+  <!-- Sommaire -->
+  <nav class="guide-toc no-print">
+    <p class="guide-toc-label">Sommaire</p>
+    <ol class="guide-toc-list">
+      <li><a href="#s1">Créer son compte et configurer son foyer</a></li>
+      <li><a href="#s2">Ajouter une dépense ou un revenu</a></li>
+      <li><a href="#s3">Comprendre le dashboard</a></li>
+      <li><a href="#s4">Consulter les statistiques et exporter en PDF</a></li>
+      <li><a href="#s5">Modifier ses paramètres</a></li>
+      <li><a href="#s6">Contacter le support</a></li>
+    </ol>
+  </nav>
+
+  <!-- Section 1 -->
+  <section class="guide-section" id="s1">
+    <div class="guide-section-header">
+      <span class="guide-section-num">1</span>
+      <div>
+        <h2 class="guide-section-title">Créer son compte et configurer son foyer</h2>
+        <p class="guide-section-intro">Quelques minutes suffisent pour démarrer.</p>
+      </div>
+    </div>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="guide-step-num">1</span>
+        <div class="guide-step-body">
+          <strong>Créer un compte</strong>
+          <p>Clique sur <em>Créer un espace familial</em> depuis la page de connexion. Saisis ton adresse email, un mot de passe d'au moins 6 caractères, et le nom de ton foyer (ex. : « Famille Dupont »).</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">2</span>
+        <div class="guide-step-body">
+          <strong>Configurer les membres</strong>
+          <p>Après l'inscription, tu arrives sur la page de configuration. Ajoute chaque membre du foyer avec son prénom et son rôle :</p>
+          <ul class="guide-list">
+            <li><strong>Parent / Payeur</strong> : contribue aux dépenses. Son salaire peut être renseigné.</li>
+            <li><strong>Enfant / Bénéficiaire</strong> : comptabilisé dans les dépenses « pour qui ».</li>
+          </ul>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">3</span>
+        <div class="guide-step-body">
+          <strong>Valider et accéder au dashboard</strong>
+          <p>Clique sur <em>Enregistrer le foyer</em>. Tu es redirigé directement vers ton tableau de bord.</p>
+        </div>
+      </div>
+    </div>
+    <div class="guide-tip">
+      <span class="guide-tip-icon">💡</span>
+      Tu peux modifier les membres à tout moment depuis <strong>Paramètres</strong>.
+    </div>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="guide-section" id="s2">
+    <div class="guide-section-header">
+      <span class="guide-section-num">2</span>
+      <div>
+        <h2 class="guide-section-title">Ajouter une dépense ou un revenu</h2>
+        <p class="guide-section-intro">Toutes les transactions se gèrent depuis la page Transactions.</p>
+      </div>
+    </div>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="guide-step-num">1</span>
+        <div class="guide-step-body">
+          <strong>Ouvrir le formulaire</strong>
+          <p>Clique sur le bouton <strong>+ Ajouter</strong> en haut de la page Transactions.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">2</span>
+        <div class="guide-step-body">
+          <strong>Renseigner les informations</strong>
+          <ul class="guide-list">
+            <li><strong>Montant</strong> : le montant de la dépense en euros.</li>
+            <li><strong>Catégorie</strong> : Loyer, Courses, Carburant, Santé… (13 catégories disponibles).</li>
+            <li><strong>Payé par</strong> : quel membre du foyer a payé.</li>
+            <li><strong>Pour qui</strong> : à qui profite cette dépense (Commun, ou un membre en particulier).</li>
+            <li><strong>Type</strong> : <em>Fixe</em> (même montant chaque mois) ou <em>Variable</em>.</li>
+            <li><strong>Date</strong> : le jour du mois concerné.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">3</span>
+        <div class="guide-step-body">
+          <strong>Ajouter un revenu</strong>
+          <p>Les revenus se saisissent depuis <strong>Paramètres → Salaires</strong>. Indique le salaire de chaque payeur pour le mois en cours.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">4</span>
+        <div class="guide-step-body">
+          <strong>Reconduire les dépenses fixes</strong>
+          <p>Dans Paramètres, le bouton <strong>Reconduire les fixes</strong> recopie automatiquement toutes les dépenses de type Fixe du mois précédent vers le mois en cours. Utile pour le loyer, les abonnements, les crédits.</p>
+        </div>
+      </div>
+    </div>
+    <div class="guide-tip">
+      <span class="guide-tip-icon">💡</span>
+      Tu peux modifier ou supprimer une dépense à tout moment en cliquant sur la ligne dans le tableau.
+    </div>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="guide-section" id="s3">
+    <div class="guide-section-header">
+      <span class="guide-section-num">3</span>
+      <div>
+        <h2 class="guide-section-title">Comprendre le dashboard</h2>
+        <p class="guide-section-intro">Le tableau de bord résume la situation financière du foyer pour le mois sélectionné.</p>
+      </div>
+    </div>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="guide-step-num">1</span>
+        <div class="guide-step-body">
+          <strong>Naviguer entre les mois</strong>
+          <p>Utilise les flèches <em>‹ ›</em> en haut de l'écran pour changer de mois. Le mois actif s'affiche dans la barre de navigation.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">2</span>
+        <div class="guide-step-body">
+          <strong>Cartes membres</strong>
+          <p>Chaque payeur dispose d'une carte affichant ses dépenses totales du mois. En bas, le récapitulatif foyer montre revenus, dépenses totales et épargne calculée automatiquement.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">3</span>
+        <div class="guide-step-body">
+          <strong>Graphique de répartition</strong>
+          <p>Le camembert montre la part de chaque payeur dans les dépenses du mois. Les couleurs correspondent à chaque membre.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">4</span>
+        <div class="guide-step-body">
+          <strong>Jauges de budget</strong>
+          <p>Chaque catégorie affiche une barre de progression par rapport au plafond défini. Les couleurs indiquent l'état :</p>
+          <ul class="guide-list">
+            <li><span class="guide-badge guide-badge-ok">Vert</span> : moins de 75 % du budget consommé.</li>
+            <li><span class="guide-badge guide-badge-warn">Orange</span> : entre 75 % et 100 %.</li>
+            <li><span class="guide-badge guide-badge-danger">Rouge</span> : budget dépassé.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">5</span>
+        <div class="guide-step-body">
+          <strong>Dernières transactions</strong>
+          <p>La liste des 10 dernières dépenses du mois est affichée en bas de page pour un aperçu rapide.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="guide-section" id="s4">
+    <div class="guide-section-header">
+      <span class="guide-section-num">4</span>
+      <div>
+        <h2 class="guide-section-title">Consulter les statistiques et exporter en PDF</h2>
+        <p class="guide-section-intro">La page Statistiques offre une vue approfondie sur plusieurs mois.</p>
+      </div>
+    </div>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="guide-step-num">1</span>
+        <div class="guide-step-body">
+          <strong>Analyse mensuelle</strong>
+          <p>Répartition des dépenses par catégorie, par payeur et par bénéficiaire pour le mois sélectionné. Chaque graphique est interactif.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">2</span>
+        <div class="guide-step-body">
+          <strong>Évolution sur 6 mois</strong>
+          <p>Le graphique d'évolution compare revenus, dépenses et épargne sur les 6 derniers mois. Idéal pour détecter les tendances.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">3</span>
+        <div class="guide-step-body">
+          <strong>Exporter en PDF</strong>
+          <p>Clique sur <strong>Exporter en PDF</strong> en haut de la page Statistiques. Cela ouvre la boîte d'impression de ton navigateur — sélectionne <em>Enregistrer en PDF</em> comme imprimante. Le contenu est automatiquement adapté pour l'impression.</p>
+        </div>
+      </div>
+    </div>
+    <div class="guide-tip">
+      <span class="guide-tip-icon">💡</span>
+      Pour un meilleur rendu PDF, active l'option <em>Graphiques d'arrière-plan</em> dans les réglages d'impression du navigateur.
+    </div>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="guide-section" id="s5">
+    <div class="guide-section-header">
+      <span class="guide-section-num">5</span>
+      <div>
+        <h2 class="guide-section-title">Modifier ses paramètres</h2>
+        <p class="guide-section-intro">Tout est modifiable depuis la page Paramètres.</p>
+      </div>
+    </div>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="guide-step-num">1</span>
+        <div class="guide-step-body">
+          <strong>Nom du foyer</strong>
+          <p>Change le nom affiché dans la sidebar en modifiant le champ <em>Nom du foyer</em> et en cliquant sur Enregistrer.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">2</span>
+        <div class="guide-step-body">
+          <strong>Membres du foyer</strong>
+          <p>Ajoute, supprime ou renomme les membres. Un clic sur la corbeille retire un membre. Clique sur <em>+ Ajouter un membre</em> pour en créer un nouveau. Valide avec <em>Enregistrer les membres</em>.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">3</span>
+        <div class="guide-step-body">
+          <strong>Salaires du mois</strong>
+          <p>Renseigne le revenu de chaque payeur pour le mois affiché. Ces montants servent à calculer l'épargne sur le dashboard.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">4</span>
+        <div class="guide-step-body">
+          <strong>Budgets par catégorie</strong>
+          <p>Définis un plafond mensuel pour chaque catégorie de dépense. Les jauges du dashboard et des stats se mettent à jour automatiquement.</p>
+        </div>
+      </div>
+    </div>
+    <div class="guide-tip">
+      <span class="guide-tip-icon">⚠️</span>
+      Supprimer un membre efface ses dépenses associées. Cette action est irréversible.
+    </div>
+  </section>
+
+  <!-- Section 6 -->
+  <section class="guide-section" id="s6">
+    <div class="guide-section-header">
+      <span class="guide-section-num">6</span>
+      <div>
+        <h2 class="guide-section-title">Contacter le support</h2>
+        <p class="guide-section-intro">Une question ou un problème ? On est là.</p>
+      </div>
+    </div>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="guide-step-num">1</span>
+        <div class="guide-step-body">
+          <strong>Formulaire de contact</strong>
+          <p>Utilise la page <a href="{{ url_for('contact') }}">Contact</a> accessible depuis la page de connexion ou en bas de certaines pages. Renseigne ton nom, ton email et ton message — on te répond dès que possible.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-num">2</span>
+        <div class="guide-step-body">
+          <strong>Mot de passe oublié</strong>
+          <p>Depuis la page de connexion, clique sur <em>Mot de passe oublié ?</em>, saisis ton adresse email et reçois un lien de réinitialisation valable 1 heure. Vérifie tes spams si tu ne reçois rien.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="guide-footer no-print">
+    <p>© Budget Familial — Anas.m</p>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportPDF() {
+  const btn = document.getElementById('pdfBtn');
+  btn.style.display = 'none';
+  window.print();
+  btn.style.display = '';
+}
+</script>
+{% endblock %}

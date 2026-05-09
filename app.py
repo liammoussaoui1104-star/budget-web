@@ -630,6 +630,21 @@ def admin_mark_lu(msg_id):
     return jsonify(ok=True)
 
 
+# ── Guide ──────────────────────────────────────────────────────────────────
+
+@app.route("/guide")
+@login_required
+def guide():
+    now = datetime.now()
+    y, m = now.year, now.month
+    py, pm = prev_period(y, m)
+    ny, nm = next_period(y, m)
+    return render_template("guide.html",
+        y=y, m=m, mois_fr=MOIS_FR[m],
+        py=py, pm=pm, ny=ny, nm=nm
+    )
+
+
 # ── Mot de passe oublié ────────────────────────────────────────────────────
 
 def _send_reset_email(to_email, reset_url):
