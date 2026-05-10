@@ -135,6 +135,15 @@ class DB:
                 created_at TEXT NOT NULL,
                 used INTEGER DEFAULT 0
             )""",
+            f"""CREATE TABLE IF NOT EXISTS shopping_list (
+                id {pk},
+                user_id INTEGER NOT NULL,
+                nom TEXT NOT NULL,
+                quantite TEXT DEFAULT '1',
+                ajoute_par TEXT DEFAULT '',
+                date_ajout TEXT NOT NULL,
+                cochee INTEGER DEFAULT 0
+            )""",
         ]
 
         conn = self._open_conn()
@@ -469,6 +478,50 @@ class DB:
 
     def invalidate_reset_token(self, token):
         self._run("UPDATE reset_tokens SET used=1 WHERE token=?", (token,))
+
+    # ── Utils ──────────────────────────────────────────────────────────────
+
+    # ── Liste de courses ───────────────────────────────────────────────────
+
+    def get_shopping_list(self, uid):
+        return self._run(
+            "SELECT * FROM shopping_list WHERE user_id=? ORDER BY cochee ASC, id DESC",
+            (uid,), fetch="all"
+        )
+
+    def add_shopping_item(self, uid, nom, quantite, ajoute_par):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return self._run(
+            "INSERT INTO shopping_list (user_id, nom, quantite, ajoute_par, date_ajout) VALUES (?,?,?,?,?)",
+            (uid, nom, quantite, ajoute_par, now),
+            fetch="id"
+        )
+
+    def toggle_shopping_item(self, uid, item_id):
+        row = self._run(
+            "SELECT cochee FROM shopping_list WHERE id=? AND user_id=?",
+            (item_id, uid), fetch="one"
+        )
+        if row:
+            new_val = 0 if row["cochee"] else 1
+            self._run(
+                "UPDATE shopping_list SET cochee=? WHERE id=? AND user_id=?",
+                (new_val, item_id, uid)
+            )
+            return new_val
+        return None
+
+    def delete_shopping_item(self, uid, item_id):
+        self._run(
+            "DELETE FROM shopping_list WHERE id=? AND user_id=?",
+            (item_id, uid)
+        )
+
+    def delete_checked_shopping_items(self, uid):
+        self._run("DELETE FROM shopping_list WHERE user_id=? AND cochee=1", (uid,))
+
+    def delete_all_shopping_items(self, uid):
+        self._run("DELETE FROM shopping_list WHERE user_id=?", (uid,))
 
     # ── Utils ──────────────────────────────────────────────────────────────
 

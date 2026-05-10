@@ -773,6 +773,89 @@ def admin_send_email():
     return jsonify(ok=True, sent=sent, failed=failed, errors=errors)
 
 
+# ── Liste de courses ───────────────────────────────────────────────────────
+
+@app.route("/courses")
+@login_required
+def courses():
+    uid = current_user.id
+    now = datetime.now()
+    y, m = now.year, now.month
+    py, pm = prev_period(y, m)
+    ny, nm = next_period(y, m)
+    members = db.get_members(uid)
+    payers = [mb for mb in members if mb["is_payer"]]
+    items = db.get_shopping_list(uid)
+    return render_template("courses.html",
+        y=y, m=m, mois_fr=MOIS_FR[m],
+        py=py, pm=pm, ny=ny, nm=nm,
+        members=members, payers=payers,
+        items=items, CATS=CATS,
+        now_day=now.day,
+    )
+
+
+@app.route("/api/courses/add", methods=["POST"])
+@login_required
+def api_courses_add():
+    uid = current_user.id
+    try:
+        data = request.get_json() or request.form
+        nom = data.get("nom", "").strip()
+        quantite = (data.get("quantite", "1") or "1").strip()
+        ajoute_par = data.get("ajoute_par", "").strip()
+        if not nom:
+            return jsonify(ok=False, error="Nom requis"), 400
+        item_id = db.add_shopping_item(uid, nom, quantite, ajoute_par)
+        return jsonify(ok=True, id=item_id)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
+@app.route("/api/courses/<int:item_id>/toggle", methods=["POST"])
+@login_required
+def api_courses_toggle(item_id):
+    uid = current_user.id
+    try:
+        new_val = db.toggle_shopping_item(uid, item_id)
+        return jsonify(ok=True, cochee=new_val)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
+@app.route("/api/courses/<int:item_id>/delete", methods=["POST"])
+@login_required
+def api_courses_delete(item_id):
+    uid = current_user.id
+    try:
+        db.delete_shopping_item(uid, item_id)
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
+@app.route("/api/courses/vider_coches", methods=["POST"])
+@login_required
+def api_courses_vider_coches():
+    uid = current_user.id
+    try:
+        db.delete_checked_shopping_items(uid)
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
+@app.route("/api/courses/vider", methods=["POST"])
+@login_required
+def api_courses_vider():
+    uid = current_user.id
+    try:
+        db.delete_all_shopping_items(uid)
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
 # ── Guide ──────────────────────────────────────────────────────────────────
 
 @app.route("/guide")

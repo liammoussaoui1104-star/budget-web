@@ -1137,6 +1137,106 @@ img { display: block; max-width: 100%; }
   text-align: center;
 }
 
+/* ── Liste de courses ─────────────────────────────────────────────────────── */
+.courses-section-label {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--sub);
+  padding: .25rem 0 .4rem;
+  margin-top: 1rem;
+}
+.courses-section-done { color: var(--ok); }
+
+.courses-item {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .65rem .9rem;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.courses-item:last-child { border-bottom: none; }
+.courses-item:hover { background: var(--input); }
+.courses-item-done .courses-nom { text-decoration: line-through; color: var(--sub); }
+.courses-item-done .courses-qty { color: var(--sub); }
+.courses-item-done { background: #f6faf7; }
+
+.courses-check-wrap {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.courses-checkbox { display: none; }
+.courses-checkmark {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.courses-checkbox:checked + .courses-checkmark {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.courses-checkbox:checked + .courses-checkmark::after {
+  content: '✓';
+  color: #fff;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.courses-item-body {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+}
+.courses-nom { font-weight: 600; font-size: .95rem; }
+.courses-qty { font-size: .82rem; color: var(--sub); }
+
+.courses-item-meta {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .75rem;
+  color: var(--sub);
+}
+.courses-by {
+  background: var(--input);
+  padding: .1rem .45rem;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.courses-del {
+  background: none;
+  border: none;
+  color: var(--sub);
+  cursor: pointer;
+  font-size: .85rem;
+  padding: .25rem .35rem;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity .15s, color .15s;
+}
+.courses-item:hover .courses-del { opacity: 1; }
+.courses-del:hover { color: var(--danger); }
+
+.courses-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--sub);
+  font-size: .9rem;
+}
+
 /* ── Print / Export PDF ──────────────────────────────────────────────────── */
 @media print {
   .sidebar, .topbar, .hamburger, .sidebar-overlay,

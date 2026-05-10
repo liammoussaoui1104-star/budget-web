@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+{% block title %}Liste de courses — Budget Familial{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">🛒 Liste de courses</h2>
+  <div style="display:flex;gap:.5rem;align-items:center">
+    <button class="btn btn-outline" id="btnConvertir" style="display:none" onclick="openConvertModal()">
+      💳 Convertir en transaction
+    </button>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Ajouter</button>
+  </div>
+</div>
+
+<!-- Compteurs -->
+<div class="metrics-row">
+  <div class="metric-card">
+    <div class="metric-label">À acheter</div>
+    <div class="metric-value" id="countTodo">{{ items | selectattr('cochee', 'equalto', 0) | list | length }}</div>
+  </div>
+  <div class="metric-card" style="border-top:3px solid var(--ok)">
+    <div class="metric-label">Dans le panier</div>
+    <div class="metric-value" id="countDone">{{ items | selectattr('cochee', 'equalto', 1) | list | length }}</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Total articles</div>
+    <div class="metric-value" id="countTotal">{{ items | length }}</div>
+  </div>
+</div>
+
+<!-- Actions globales -->
+<div style="display:flex;gap:.5rem;margin-bottom:1rem;justify-content:flex-end">
+  <button class="btn btn-outline btn-sm" id="btnViderCoches" onclick="viderCoches()" style="display:none;color:var(--ok)">
+    ✓ Supprimer le panier
+  </button>
+  <button class="btn btn-outline btn-sm" onclick="viderTout()" style="color:var(--danger)">
+    🗑 Vider la liste
+  </button>
+</div>
+
+<!-- Section : À acheter -->
+<div id="sectionTodo">
+  <div class="courses-section-label">À acheter</div>
+  <div class="card" id="listTodo">
+    {% set todo = items | selectattr('cochee', 'equalto', 0) | list %}
+    {% if todo %}
+      {% for item in todo %}
+      <div class="courses-item" id="item-{{ item.id }}" data-id="{{ item.id }}" data-cochee="0">
+        <label class="courses-check-wrap">
+          <input type="checkbox" class="courses-checkbox" onchange="toggleItem({{ item.id }}, this)">
+          <span class="courses-checkmark"></span>
+        </label>
+        <div class="courses-item-body">
+          <span class="courses-nom">{{ item.nom }}</span>
+          <span class="courses-qty">× {{ item.quantite }}</span>
+        </div>
+        <div class="courses-item-meta">
+          {% if item.ajoute_par %}<span class="courses-by">{{ item.ajoute_par }}</span>{% endif %}
+          <span class="courses-date">{{ item.date_ajout[:10] }}</span>
+        </div>
+        <button class="courses-del" onclick="deleteItem({{ item.id }})" title="Supprimer">✕</button>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="courses-empty" id="emptyTodo">La liste est vide. Ajoute des articles !</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Section : Dans le panier -->
+{% set done = items | selectattr('cochee', 'equalto', 1) | list %}
+<div id="sectionDone" style="{% if not done %}display:none{% endif %}">
+  <div class="courses-section-label courses-section-done">Dans le panier</div>
+  <div class="card" id="listDone">
+    {% for item in done %}
+    <div class="courses-item courses-item-done" id="item-{{ item.id }}" data-id="{{ item.id }}" data-cochee="1">
+      <label class="courses-check-wrap">
+        <input type="checkbox" class="courses-checkbox" checked onchange="toggleItem({{ item.id }}, this)">
+        <span class="courses-checkmark"></span>
+      </label>
+      <div class="courses-item-body">
+        <span class="courses-nom">{{ item.nom }}</span>
+        <span class="courses-qty">× {{ item.quantite }}</span>
+      </div>
+      <div class="courses-item-meta">
+        {% if item.ajoute_par %}<span class="courses-by">{{ item.ajoute_par }}</span>{% endif %}
+        <span class="courses-date">{{ item.date_ajout[:10] }}</span>
+      </div>
+      <button class="courses-del" onclick="deleteItem({{ item.id }})" title="Supprimer">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Modal : Ajouter un article -->
+<div class="modal-overlay" id="modalAdd" style="display:none" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Ajouter un article</h3>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Article</label>
+        <input type="text" id="addNom" placeholder="Ex : Lait, Pain, Pommes…" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Quantité</label>
+        <input type="text" id="addQte" placeholder="Ex : 2, 500g, 1 kg…" value="1">
+      </div>
+      <div class="form-group">
+        <label>Ajouté par</label>
+        <select id="addPar">
+          <option value="">— Choisir —</option>
+          {% for mb in members %}
+          <option value="{{ mb.name }}">{{ mb.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAddModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitAdd()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal : Convertir en transaction -->
+<div class="modal-overlay" id="modalConvert" style="display:none" onclick="if(event.target===this)closeConvertModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Convertir en transaction</h3>
+      <button class="modal-close" onclick="closeConvertModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.85rem;color:var(--sub);margin-bottom:1rem">
+        Les articles cochés seront supprimés de la liste après validation.
+      </p>
+      <div class="form-group">
+        <label>Montant</label>
+        <input type="number" id="cvMontant" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Catégorie</label>
+        <select id="cvCat">
+          {% for c in CATS %}
+          <option value="{{ c }}" {% if c == 'Courses' %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Payé par</label>
+        <select id="cvPaye">
+          {% for p in payers %}
+          <option value="{{ p.name }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Pour qui</label>
+        <select id="cvPour">
+          <option value="Commun">Commun</option>
+          {% for mb in members %}
+          <option value="{{ mb.name }}">{{ mb.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="cvType">
+          <option value="Variable" selected>Variable</option>
+          <option value="Fixe">Fixe</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Jour</label>
+        <input type="number" id="cvJour" value="{{ now_day }}" min="1" max="31">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeConvertModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitConvert()">Créer la transaction</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const NOW_YEAR  = {{ y }};
+const NOW_MONTH = {{ m }};
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+function updateCounters() {
+  const all   = document.querySelectorAll('.courses-item');
+  const done  = document.querySelectorAll('.courses-item.courses-item-done');
+  const todo  = all.length - done.length;
+  document.getElementById('countTodo').textContent  = todo;
+  document.getElementById('countDone').textContent  = done.length;
+  document.getElementById('countTotal').textContent = all.length;
+
+  // Convertir button
+  const btn = document.getElementById('btnConvertir');
+  btn.style.display = done.length > 0 ? '' : 'none';
+
+  // Vider cochés button
+  const btnVC = document.getElementById('btnViderCoches');
+  btnVC.style.display = done.length > 0 ? '' : 'none';
+
+  // Show/hide sections
+  const sectionDone = document.getElementById('sectionDone');
+  sectionDone.style.display = done.length > 0 ? '' : 'none';
+
+  // Empty state todo
+  const listTodo = document.getElementById('listTodo');
+  const remaining = listTodo.querySelectorAll('.courses-item:not(.courses-item-done)');
+  let emptyEl = document.getElementById('emptyTodo');
+  if (remaining.length === 0) {
+    if (!emptyEl) {
+      emptyEl = document.createElement('div');
+      emptyEl.id = 'emptyTodo';
+      emptyEl.className = 'courses-empty';
+      emptyEl.textContent = 'La liste est vide. Ajoute des articles !';
+      listTodo.appendChild(emptyEl);
+    }
+    emptyEl.style.display = '';
+  } else if (emptyEl) {
+    emptyEl.style.display = 'none';
+  }
+}
+
+// ── Toggle ───────────────────────────────────────────────────────────────
+
+async function toggleItem(id, checkbox) {
+  const res  = await fetch(`/api/courses/${id}/toggle`, { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) { checkbox.checked = !checkbox.checked; return; }
+
+  const el = document.getElementById(`item-${id}`);
+  if (data.cochee === 1) {
+    // Move to "Dans le panier"
+    el.classList.add('courses-item-done');
+    document.getElementById('listDone').appendChild(el);
+  } else {
+    // Move back to "À acheter"
+    el.classList.remove('courses-item-done');
+    const listTodo = document.getElementById('listTodo');
+    const emptyEl  = document.getElementById('emptyTodo');
+    if (emptyEl) listTodo.insertBefore(el, emptyEl);
+    else listTodo.appendChild(el);
+  }
+  updateCounters();
+}
+
+// ── Delete ───────────────────────────────────────────────────────────────
+
+async function deleteItem(id) {
+  const res  = await fetch(`/api/courses/${id}/delete`, { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) return;
+  const el = document.getElementById(`item-${id}`);
+  el.remove();
+  updateCounters();
+}
+
+// ── Vider cochés ─────────────────────────────────────────────────────────
+
+async function viderCoches() {
+  if (!confirm('Supprimer tous les articles du panier ?')) return;
+  const res  = await fetch('/api/courses/vider_coches', { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) return;
+  document.querySelectorAll('.courses-item-done').forEach(el => el.remove());
+  updateCounters();
+}
+
+// ── Vider tout ────────────────────────────────────────────────────────────
+
+async function viderTout() {
+  if (!confirm('Supprimer tous les articles de la liste ?')) return;
+  const res  = await fetch('/api/courses/vider', { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) return;
+  document.querySelectorAll('.courses-item').forEach(el => el.remove());
+  updateCounters();
+}
+
+// ── Modal Ajouter ────────────────────────────────────────────────────────
+
+function openAddModal() {
+  document.getElementById('addNom').value = '';
+  document.getElementById('addQte').value = '1';
+  document.getElementById('addPar').value = '';
+  document.getElementById('modalAdd').style.display = 'flex';
+  document.getElementById('addNom').focus();
+}
+function closeAddModal() {
+  document.getElementById('modalAdd').style.display = 'none';
+}
+
+async function submitAdd() {
+  const nom = document.getElementById('addNom').value.trim();
+  const qte = document.getElementById('addQte').value.trim() || '1';
+  const par = document.getElementById('addPar').value;
+  if (!nom) { document.getElementById('addNom').focus(); return; }
+
+  const res  = await fetch('/api/courses/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nom, quantite: qte, ajoute_par: par })
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Erreur : ' + data.error); return; }
+
+  // Build new item element
+  const today = new Date().toISOString().slice(0,10);
+  const el = document.createElement('div');
+  el.className = 'courses-item';
+  el.id = `item-${data.id}`;
+  el.dataset.id = data.id;
+  el.dataset.cochee = '0';
+  el.innerHTML = `
+    <label class="courses-check-wrap">
+      <input type="checkbox" class="courses-checkbox" onchange="toggleItem(${data.id}, this)">
+      <span class="courses-checkmark"></span>
+    </label>
+    <div class="courses-item-body">
+      <span class="courses-nom">${escHtml(nom)}</span>
+      <span class="courses-qty">× ${escHtml(qte)}</span>
+    </div>
+    <div class="courses-item-meta">
+      ${par ? `<span class="courses-by">${escHtml(par)}</span>` : ''}
+      <span class="courses-date">${today}</span>
+    </div>
+    <button class="courses-del" onclick="deleteItem(${data.id})" title="Supprimer">✕</button>
+  `;
+
+  const listTodo = document.getElementById('listTodo');
+  const emptyEl  = document.getElementById('emptyTodo');
+  if (emptyEl) listTodo.insertBefore(el, emptyEl);
+  else listTodo.prepend(el);
+
+  closeAddModal();
+  updateCounters();
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Modal Convertir ───────────────────────────────────────────────────────
+
+function openConvertModal() {
+  document.getElementById('cvMontant').value = '';
+  document.getElementById('modalConvert').style.display = 'flex';
+  document.getElementById('cvMontant').focus();
+}
+function closeConvertModal() {
+  document.getElementById('modalConvert').style.display = 'none';
+}
+
+async function submitConvert() {
+  const montant = parseFloat(document.getElementById('cvMontant').value);
+  if (!montant || montant <= 0) { document.getElementById('cvMontant').focus(); return; }
+
+  const payload = {
+    annee:    NOW_YEAR,
+    mois:     NOW_MONTH,
+    jour:     parseInt(document.getElementById('cvJour').value) || 1,
+    montant:  montant,
+    categorie: document.getElementById('cvCat').value,
+    description: 'Courses',
+    personne: document.getElementById('cvPaye').value,
+    type_dep: document.getElementById('cvType').value,
+    pour_qui: document.getElementById('cvPour').value,
+  };
+
+  const res  = await fetch('/api/depense/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Erreur : ' + data.error); return; }
+
+  // Delete checked items
+  await fetch('/api/courses/vider_coches', { method: 'POST' });
+  document.querySelectorAll('.courses-item-done').forEach(el => el.remove());
+
+  closeConvertModal();
+  updateCounters();
+
+  // Confirmation flash
+  const flash = document.createElement('div');
+  flash.className = 'flash flash-success';
+  flash.textContent = 'Transaction créée et panier vidé !';
+  const fc = document.querySelector('.flash-container') || (() => {
+    const c = document.createElement('div'); c.className = 'flash-container';
+    document.querySelector('.page-content').prepend(c); return c;
+  })();
+  fc.appendChild(flash);
+  setTimeout(() => flash.remove(), 3000);
+}
+
+// ── Keyboard shortcut ─────────────────────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('modalAdd').style.display !== 'none') {
+    submitAdd();
+  }
+  if (e.key === 'Escape') {
+    closeAddModal();
+    closeConvertModal();
+  }
+});
+
+updateCounters();
+</script>
+{% endblock %}
