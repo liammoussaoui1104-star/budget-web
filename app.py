@@ -421,6 +421,7 @@ def stats():
         evolution=evolution,
         transactions=transactions,
         prev_total_dep=prev_total_dep_raw,
+        prev_mois_fr=MOIS_FR[pm],
         taux_epargne=taux_epargne,
         top_cat=top_cat, top_cat_amount=top_cat_amount,
         variation=variation,
