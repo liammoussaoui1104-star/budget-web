@@ -787,6 +787,31 @@ def _send_welcome_email(to_email, household_name):
             Et bonne nouvelle : <strong>Budget Familial sera bientôt disponible sur App Store et Play Store</strong> pour encore plus de praticité au quotidien. Reste connecté !
           </p>
 
+          <!-- Astuce écran d'accueil -->
+          <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px">
+            <tr>
+              <td style="background:#f0f4fa;border-left:3px solid #2563a8;border-radius:8px;padding:20px 24px">
+                <p style="margin:0 0 14px;font-size:15px;font-weight:600;color:#1e3a5f">
+                  📲 Astuce : ajoutez l'app sur votre écran d'accueil
+                </p>
+                <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151">🍎 iPhone (Safari)</p>
+                <ol style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#374151;line-height:1.8">
+                  <li>Ouvrez Safari et accédez à l'application</li>
+                  <li>Appuyez sur l'icône <strong>Partager</strong> (carré avec flèche ↑) en bas</li>
+                  <li>Faites défiler et appuyez sur <strong>« Sur l'écran d'accueil »</strong></li>
+                  <li>Appuyez sur <strong>« Ajouter »</strong> en haut à droite</li>
+                </ol>
+                <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151">🤖 Android (Chrome)</p>
+                <ol style="margin:0;padding-left:20px;font-size:13px;color:#374151;line-height:1.8">
+                  <li>Ouvrez Chrome et accédez à l'application</li>
+                  <li>Appuyez sur les <strong>3 points</strong> en haut à droite</li>
+                  <li>Appuyez sur <strong>« Ajouter à l'écran d'accueil »</strong></li>
+                  <li>Confirmez en appuyant sur <strong>« Ajouter »</strong></li>
+                </ol>
+              </td>
+            </tr>
+          </table>
+
           <!-- CTA Guide -->
           <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px">
             <tr>
