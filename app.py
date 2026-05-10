@@ -938,7 +938,7 @@ def _send_welcome_email(to_email, household_name):
           <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px">
             <tr>
               <td align="center">
-                <a href="https://budget-web-38nm.onrender.com/guide"
+                <a href="https://monbudgetfamilial.com/guide"
                    style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px">
                   📖 Consulter le guide d'utilisation
                 </a>
@@ -950,7 +950,7 @@ def _send_welcome_email(to_email, household_name):
           <table cellpadding="0" cellspacing="0" width="100%">
             <tr>
               <td align="center">
-                <a href="https://budget-web-38nm.onrender.com/contact"
+                <a href="https://monbudgetfamilial.com/contact"
                    style="display:inline-block;background:#f8fafc;color:#2563a8;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;border:1.5px solid #2563a8">
                   ✉️ Envoyer une suggestion
                 </a>
