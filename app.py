@@ -597,6 +597,10 @@ def reconduire_fixes():
 
 @app.route("/contact", methods=["GET", "POST"])
 def contact():
+    now = datetime.now()
+    y, m = now.year, now.month
+    py, pm = prev_period(y, m)
+    ny, nm = next_period(y, m)
     if request.method == "POST":
         nom = request.form.get("nom", "").strip()
         email = request.form.get("email", "").strip().lower()
@@ -604,7 +608,8 @@ def contact():
         message = request.form.get("message", "").strip()
         if not nom or not email or not message:
             flash("Nom, email et message sont requis.", "error")
-            return render_template("contact.html")
+            return render_template("contact.html",
+                y=y, m=m, mois_fr=MOIS_FR[m], py=py, pm=pm, ny=ny, nm=nm)
         db.add_contact_message(nom, email, telephone, message)
         try:
             _send_contact_notification(nom, email, telephone, message)
@@ -612,7 +617,8 @@ def contact():
             app.logger.error("Brevo contact notification error: %s", e)
         flash("Message envoyé ! Nous te répondrons dès que possible.", "success")
         return redirect(url_for("contact"))
-    return render_template("contact.html")
+    return render_template("contact.html",
+        y=y, m=m, mois_fr=MOIS_FR[m], py=py, pm=pm, ny=ny, nm=nm)
 
 
 # ── Admin ───────────────────────────────────────────────────────────────────
@@ -876,7 +882,7 @@ def _send_contact_notification(nom, email, telephone, message):
     tel_line = f"<p><strong>Téléphone :</strong> {telephone}</p>" if telephone else ""
     payload = {
         "sender": {"email": from_email, "name": "Budget Familial"},
-        "to": [{"email": "liammoussaoui1104@gmail.com", "name": "Anas"}],
+        "to": [{"email": "contact.budgetfamilial@gmail.com", "name": "Anas"}],
         "replyTo": {"email": email, "name": nom},
         "subject": f"Nouveau message de contact — {nom}",
         "htmlContent": (

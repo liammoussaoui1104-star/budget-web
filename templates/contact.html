@@ -1,13 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Nous contacter — Budget Familial{% endblock %}
 
-{% block auth_content %}
-<div class="auth-page">
-  <div class="auth-card contact-card">
-    <div class="auth-logo">🏠</div>
-    <h1 class="auth-title">Nous contacter</h1>
-    <p class="auth-sub">Une question, un problème ou une suggestion ? On te répond.</p>
-
+{% macro contact_form() %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for cat, msg in messages %}
@@ -15,7 +9,6 @@
         {% endfor %}
       {% endif %}
     {% endwith %}
-
     <form method="POST" action="{{ url_for('contact') }}" class="auth-form" novalidate>
       <div class="form-group">
         <label for="nom">Nom complet</label>
@@ -35,10 +28,29 @@
       </div>
       <button type="submit" class="btn btn-primary btn-full">Envoyer le message</button>
     </form>
+{% endmacro %}
 
+{# Vue non connectée : carte centrée style login #}
+{% block auth_content %}
+<div class="auth-page">
+  <div class="auth-card contact-card">
+    <div class="auth-logo">🏠</div>
+    <h1 class="auth-title">Nous contacter</h1>
+    <p class="auth-sub">Une question, un problème ou une suggestion ? On te répond.</p>
+    {{ contact_form() }}
     <p class="auth-link"><a href="{{ url_for('login') }}">← Retour à la connexion</a></p>
-    <p class="contact-link-sep"><a href="{{ url_for('contact') }}">Nous contacter</a></p>
     <p class="login-signature">© Anas.m</p>
   </div>
+</div>
+{% endblock %}
+
+{# Vue connectée : formulaire dans le layout principal #}
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Nous contacter</h2>
+</div>
+<div class="card" style="max-width:560px">
+  <p class="settings-desc" style="margin-bottom:1.25rem">Une question, un problème ou une suggestion ? On te répond.</p>
+  {{ contact_form() }}
 </div>
 {% endblock %}
