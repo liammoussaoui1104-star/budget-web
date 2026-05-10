@@ -378,6 +378,36 @@ def stats():
     py, pm = prev_period(y, m)
     ny, nm = next_period(y, m)
 
+    # Transactions triées par jour croissant
+    transactions = sorted(db.get_depenses(uid, y, m), key=lambda r: r["jour"])
+
+    # Analyse automatique
+    prev_total_dep_raw = sum(db.get_totaux_payeur(uid, py, pm).values())
+    taux_epargne = round(epargne / revenus * 100, 1) if revenus > 0 else 0
+
+    top_cat = None
+    top_cat_amount = 0
+    if totaux_cat:
+        top_cat = max(totaux_cat, key=totaux_cat.get)
+        top_cat_amount = totaux_cat[top_cat]
+
+    variation = round((total_dep - prev_total_dep_raw) / prev_total_dep_raw * 100, 1) if prev_total_dep_raw > 0 else None
+
+    if revenus > 0 and epargne < 0:
+        analyse_type = "alert"
+        analyse_msg = "Attention : tes dépenses dépassent tes revenus ce mois-ci. Revois les postes variables pour rééquilibrer."
+    elif taux_epargne >= 10:
+        analyse_type = "positive"
+        analyse_msg = f"Excellent ! Tu épargnes {taux_epargne} % de tes revenus ce mois."
+    elif revenus > 0:
+        analyse_type = "encourage"
+        analyse_msg = f"Tu épargnes {taux_epargne} % de tes revenus ce mois. Continue sur cette lancée !"
+    else:
+        analyse_type = "neutral"
+        analyse_msg = "Aucun revenu renseigné ce mois. Pense à mettre à jour tes salaires dans les Paramètres."
+
+    now_str = datetime.now().strftime("%d/%m/%Y")
+
     return render_template("stats.html",
         y=y, m=m, mois_fr=MOIS_FR[m],
         py=py, pm=pm, ny=ny, nm=nm,
@@ -388,7 +418,14 @@ def stats():
         revenus=revenus, total_dep=total_dep, epargne=epargne,
         total_fixes=total_fixes, total_variables=total_variables,
         total_enfants=total_enfants,
-        evolution=evolution
+        evolution=evolution,
+        transactions=transactions,
+        prev_total_dep=prev_total_dep_raw,
+        taux_epargne=taux_epargne,
+        top_cat=top_cat, top_cat_amount=top_cat_amount,
+        variation=variation,
+        analyse_type=analyse_type, analyse_msg=analyse_msg,
+        now_str=now_str,
     )
 
 

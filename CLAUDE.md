@@ -32,6 +32,6 @@
 - Gestion des devises (12 devises disponibles, stockée par foyer)
 - Email de bienvenue automatique à l'inscription (Brevo)
 - Page de contact publique (accessible sans connexion)
-- Export PDF
+- Export PDF amélioré : 3 pages (résumé, graphiques, transactions), analyse automatique du mois, pourcentages sur les camemberts, tableau complet des dépenses
 - Interface d'administration (/admin) : gestion des comptes, messages de contact, envoi d'emails groupés
 - Guide d'utilisation (/guide)

@@ -2,12 +2,30 @@
 {% block title %}Statistiques — {{ mois_fr }} {{ y }}{% endblock %}
 
 {% block content %}
-<div class="page-header">
+
+<!-- En-tête écran -->
+<div class="page-header no-print">
   <h2 class="page-title">Statistiques — {{ mois_fr }} {{ y }}</h2>
   <button class="btn btn-outline" onclick="window.print()">Exporter PDF</button>
 </div>
 
-<!-- Metrics summary cards -->
+<!-- En-tête PDF (visible uniquement à l'impression) -->
+<div class="pdf-doc-header">
+  <div class="pdf-doc-header-left">
+    <span class="pdf-doc-icon">🏠</span>
+    <div>
+      <div class="pdf-doc-household">{{ current_user.household_name }}</div>
+      <div class="pdf-doc-period">Rapport mensuel — {{ mois_fr }} {{ y }}</div>
+    </div>
+  </div>
+  <div class="pdf-doc-date">Généré le {{ now_str }}</div>
+</div>
+
+<!-- ================================================================
+     PAGE 1 — Résumé
+     ================================================================ -->
+
+<!-- Métriques principales -->
 <div class="metrics-row">
   <div class="metric-card metric-revenus">
     <div class="metric-label">Revenus</div>
@@ -29,7 +47,7 @@
   {% endif %}
 </div>
 
-<!-- Charges Fixes vs Variables -->
+<!-- Fixes vs Variables -->
 <div class="metrics-row">
   <div class="metric-card" style="border-top:3px solid var(--warn)">
     <div class="metric-label">Charges fixes</div>
@@ -51,45 +69,35 @@
   </div>
 </div>
 
-<!-- Doughnut charts -->
-<div class="charts-row">
-  <div class="card chart-card">
-    <div class="card-title">Qui a payé ?</div>
-    {% if pie_payeur.data and pie_payeur.data|sum > 0 %}
-    <div class="chart-wrap"><canvas id="piePayeur"></canvas></div>
-    {% else %}
-    <p class="empty-state">Aucune dépense ce mois.</p>
+<!-- Analyse du mois -->
+<div class="card pdf-analyse">
+  <div class="card-title">Analyse du mois</div>
+  <div class="analyse-grid">
+    {% if top_cat %}
+    <div class="analyse-kpi">
+      <div class="analyse-kpi-label">Poste principal</div>
+      <div class="analyse-kpi-value">{{ top_cat }}</div>
+      <div class="analyse-kpi-sub">{{ top_cat_amount | money }}</div>
+    </div>
+    {% endif %}
+    <div class="analyse-kpi">
+      <div class="analyse-kpi-label">Taux d'épargne</div>
+      <div class="analyse-kpi-value {% if taux_epargne < 0 %}akpi-danger{% elif taux_epargne >= 10 %}akpi-ok{% else %}akpi-warn{% endif %}">
+        {{ taux_epargne }}%
+      </div>
+      <div class="analyse-kpi-sub">{{ epargne | money }} épargnés</div>
+    </div>
+    {% if variation is not none %}
+    <div class="analyse-kpi">
+      <div class="analyse-kpi-label">vs mois précédent</div>
+      <div class="analyse-kpi-value {% if variation > 0 %}akpi-danger{% elif variation < 0 %}akpi-ok{% else %}akpi-sub{% endif %}">
+        {% if variation > 0 %}▲ +{{ variation }}%{% elif variation < 0 %}▼ {{ variation }}%{% else %}= 0%{% endif %}
+      </div>
+      <div class="analyse-kpi-sub">{{ prev_total_dep | money }} le mois dernier</div>
+    </div>
     {% endif %}
   </div>
-  <div class="card chart-card">
-    <div class="card-title">Pour qui ?</div>
-    {% if pie_pour.data and pie_pour.data|sum > 0 %}
-    <div class="chart-wrap"><canvas id="piePour"></canvas></div>
-    {% else %}
-    <p class="empty-state">Aucune dépense ce mois.</p>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Barres par catégorie (stackées) -->
-<div class="card" style="margin-top:1.5rem">
-  <div class="card-title">Dépenses par catégorie</div>
-  {% set has_cat_data = cat_bar | selectattr('total', 'gt', 0) | list %}
-  {% if has_cat_data %}
-  <div class="chart-wrap chart-wrap-bar">
-    <canvas id="catBar"></canvas>
-  </div>
-  {% else %}
-  <p class="empty-state">Aucune dépense ce mois.</p>
-  {% endif %}
-</div>
-
-<!-- Évolution 6 derniers mois -->
-<div class="card" style="margin-top:1.5rem">
-  <div class="card-title">Évolution — 6 derniers mois</div>
-  <div style="height:280px">
-    <canvas id="evolutionChart"></canvas>
-  </div>
+  <div class="analyse-msg analyse-msg-{{ analyse_type }}">{{ analyse_msg }}</div>
 </div>
 
 <!-- Budgets par catégorie -->
@@ -123,20 +131,266 @@
   <p class="empty-state">Aucune donnée de budget ce mois.</p>
   {% endif %}
 </div>
+
+<!-- ================================================================
+     PAGE 2 — Graphiques
+     ================================================================ -->
+<div class="pdf-break"></div>
+<div class="pdf-section-label">Graphiques</div>
+
+<!-- Camemberts -->
+<div class="charts-row">
+  <div class="card chart-card">
+    <div class="card-title">Qui a payé ?</div>
+    {% if pie_payeur.data and pie_payeur.data|sum > 0 %}
+    <div class="chart-wrap"><canvas id="piePayeur"></canvas></div>
+    {% else %}
+    <p class="empty-state">Aucune dépense ce mois.</p>
+    {% endif %}
+  </div>
+  <div class="card chart-card">
+    <div class="card-title">Pour qui ?</div>
+    {% if pie_pour.data and pie_pour.data|sum > 0 %}
+    <div class="chart-wrap"><canvas id="piePour"></canvas></div>
+    {% else %}
+    <p class="empty-state">Aucune dépense ce mois.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Barres catégories -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-title">Dépenses par catégorie</div>
+  {% set has_cat_data = cat_bar | selectattr('total', 'gt', 0) | list %}
+  {% if has_cat_data %}
+  <div class="chart-wrap chart-wrap-bar">
+    <canvas id="catBar"></canvas>
+  </div>
+  {% else %}
+  <p class="empty-state">Aucune dépense ce mois.</p>
+  {% endif %}
+</div>
+
+<!-- Évolution 6 mois -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-title">Évolution — 6 derniers mois</div>
+  <div style="height:280px">
+    <canvas id="evolutionChart"></canvas>
+  </div>
+</div>
+
+<!-- ================================================================
+     PAGE 3 — Transactions
+     ================================================================ -->
+<div class="pdf-break"></div>
+<div class="pdf-section-label">
+  Transactions — {{ mois_fr }} {{ y }}
+  <span class="pdf-section-label-count">{{ transactions|length }} opération{{ 's' if transactions|length > 1 else '' }}</span>
+</div>
+
+{% if transactions %}
+<div class="card" style="margin-top:.75rem">
+  <div class="table-wrap">
+    <table class="table pdf-tx-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th>Catégorie</th>
+          <th>Payé par</th>
+          <th>Pour qui</th>
+          <th>Type</th>
+          <th class="col-amount">Montant</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr class="{% if loop.index is odd %}tr-stripe{% endif %}">
+          <td class="col-date">{{ '%02d'|format(t.jour) }}/{{ '%02d'|format(m) }}/{{ y }}</td>
+          <td>{{ t.description or '—' }}</td>
+          <td>{{ t.categorie }}</td>
+          <td>{{ t.personne }}</td>
+          <td>{{ t.pour_qui }}</td>
+          <td>
+            <span class="tx-type-badge tx-type-{{ t.type_dep | lower }}">{{ t.type_dep }}</span>
+          </td>
+          <td class="col-amount">{{ t.montant | money }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="tx-total-row">
+          <td colspan="6"><strong>Total dépenses</strong></td>
+          <td class="col-amount"><strong>{{ total_dep | money }}</strong></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="margin-top:.75rem">
+  <p class="empty-state" style="padding:2rem">Aucune transaction ce mois.</p>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+/* ── Utilitaires print ──────────────────────────────────────── */
+.pdf-doc-header  { display: none; }
+.pdf-section-label { display: none; }
+.pdf-break { display: none; }
+
+@media print {
+  /* Masquer l'UI de navigation */
+  .sidebar, .sidebar-overlay, .topbar, .hamburger, .no-print { display: none !important; }
+  .main { margin-left: 0 !important; padding: 0 !important; }
+  .page-content { padding: 0.5cm 1cm !important; }
+  body { font-size: 10.5pt; color: #111; background: #fff; }
+
+  /* Éléments PDF */
+  .pdf-doc-header  { display: flex !important; }
+  .pdf-section-label { display: block !important; }
+  .pdf-break { display: block; break-before: page; }
+
+  /* Cartes sans ombre */
+  .card { box-shadow: none !important; border: 1px solid #ddd; }
+
+  /* Éviter les coupures */
+  .metrics-row, .budget-row, .card { break-inside: avoid; }
+
+  /* Table transactions */
+  .pdf-tx-table thead th { background: #1e3a5f !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pdf-tx-table .tr-stripe td { background: #f8f6f1 !important; print-color-adjust: exact; }
+  .tx-total-row td { background: #eef2f8 !important; print-color-adjust: exact; border-top: 2px solid #1e3a5f !important; }
+
+  /* Graphiques */
+  canvas { max-width: 100% !important; }
+}
+
+/* ── En-tête PDF ────────────────────────────────────────────── */
+.pdf-doc-header {
+  justify-content: space-between;
+  align-items: center;
+  padding: .75rem 0 1.25rem;
+  border-bottom: 2px solid #1e3a5f;
+  margin-bottom: 1.25rem;
+}
+.pdf-doc-header-left { display: flex; align-items: center; gap: .75rem; }
+.pdf-doc-icon { font-size: 1.8rem; }
+.pdf-doc-household { font-size: 1.1rem; font-weight: 700; color: #1e3a5f; }
+.pdf-doc-period { font-size: .85rem; color: #555; margin-top: .1rem; }
+.pdf-doc-date { font-size: .8rem; color: #777; }
+
+/* ── Label de section (impression uniquement) ───────────────── */
+.pdf-section-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e3a5f;
+  padding-bottom: .4rem;
+  border-bottom: 2px solid #1e3a5f;
+  margin: 1.5rem 0 .75rem;
+}
+.pdf-section-label-count {
+  font-size: .8rem;
+  font-weight: 400;
+  color: #777;
+  margin-left: .5rem;
+}
+
+/* ── Analyse du mois ────────────────────────────────────────── */
+.pdf-analyse { margin-top: 1.5rem; }
+.analyse-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.analyse-kpi {
+  flex: 1;
+  min-width: 130px;
+  padding: .75rem 1rem;
+  background: #f9f7f2;
+  border-radius: 8px;
+  border: 1px solid #e9e3d4;
+}
+.analyse-kpi-label {
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--sub);
+  margin-bottom: .2rem;
+}
+.analyse-kpi-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: .2rem;
+  color: var(--text);
+}
+.analyse-kpi-sub { font-size: .75rem; color: var(--sub); }
+.akpi-ok     { color: var(--ok); }
+.akpi-warn   { color: var(--warn); }
+.akpi-danger { color: var(--danger); }
+.akpi-sub    { color: var(--sub); }
+
+.analyse-msg {
+  padding: .8rem 1rem;
+  border-radius: 8px;
+  font-size: .875rem;
+  line-height: 1.55;
+}
+.analyse-msg-positive { background: #e8f4ed; color: #1a4d2f; border: 1px solid #b0d9c0; }
+.analyse-msg-encourage { background: #fef3e2; color: #7a4c10; border: 1px solid #f0c070; }
+.analyse-msg-alert { background: #fdeaea; color: #7a1e1e; border: 1px solid #e0a0a0; }
+.analyse-msg-neutral { background: #f0f4fa; color: #1e3a5f; border: 1px solid #b8cee8; }
+
+/* ── Table transactions ─────────────────────────────────────── */
+.pdf-tx-table thead th { background: #1e3a5f; color: #fff; font-weight: 600; }
+.pdf-tx-table .tr-stripe td { background: #f9f7f2; }
+.tx-total-row td {
+  background: #eef2f8;
+  border-top: 2px solid #1e3a5f;
+  font-size: .9rem;
+}
+.col-date { white-space: nowrap; color: var(--sub); }
+.col-amount { text-align: right; font-weight: 600; white-space: nowrap; }
+
+/* ── Badges type ────────────────────────────────────────────── */
+.tx-type-badge {
+  display: inline-block;
+  font-size: .68rem;
+  padding: .1rem .4rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.tx-type-fixe     { background: #e8f4ed; color: #1a4d2f; }
+.tx-type-variable { background: #fef3e2; color: #7a4c10; }
+</style>
 <script>
 function fmtMoney(val) {
   val = parseFloat(val) || 0;
   const [int, dec] = val.toFixed(2).split('.');
-  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return `${intFmt},${dec} €`;
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${intFmt},${dec} {{ current_user.currency }}`;
 }
+
+const datalabelsCfg = {
+  formatter: (value, ctx) => {
+    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+    const pct = (value / total * 100).toFixed(1);
+    return parseFloat(pct) >= 5 ? pct + '%' : '';
+  },
+  color: '#fff',
+  font: { weight: 'bold', size: 11 }
+};
 
 {% if pie_payeur.data and pie_payeur.data|sum > 0 %}
 new Chart(document.getElementById('piePayeur'), {
   type: 'doughnut',
+  plugins: [ChartDataLabels],
   data: {
     labels: {{ pie_payeur.labels | tojson }},
     datasets: [{ data: {{ pie_payeur.data | tojson }}, backgroundColor: {{ pie_payeur.colors | tojson }}, borderWidth: 2, borderColor: '#fff' }]
@@ -144,6 +398,7 @@ new Chart(document.getElementById('piePayeur'), {
   options: {
     responsive: true,
     plugins: {
+      datalabels: datalabelsCfg,
       legend: { position: 'bottom' },
       tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmtMoney(ctx.parsed)}` } }
     }
@@ -154,6 +409,7 @@ new Chart(document.getElementById('piePayeur'), {
 {% if pie_pour.data and pie_pour.data|sum > 0 %}
 new Chart(document.getElementById('piePour'), {
   type: 'doughnut',
+  plugins: [ChartDataLabels],
   data: {
     labels: {{ pie_pour.labels | tojson }},
     datasets: [{ data: {{ pie_pour.data | tojson }}, backgroundColor: {{ pie_pour.colors | tojson }}, borderWidth: 2, borderColor: '#fff' }]
@@ -161,6 +417,7 @@ new Chart(document.getElementById('piePour'), {
   options: {
     responsive: true,
     plugins: {
+      datalabels: datalabelsCfg,
       legend: { position: 'bottom' },
       tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmtMoney(ctx.parsed)}` } }
     }
@@ -170,25 +427,17 @@ new Chart(document.getElementById('piePour'), {
 
 {% set has_cat_data = cat_bar | selectattr('total', 'gt', 0) | list %}
 {% if has_cat_data %}
-const catLabels = {{ cat_bar | map(attribute='cat') | list | tojson }};
 const payerColors = {{ payers | map(attribute='color') | list | tojson }};
-const payerNames = {{ payers | map(attribute='name') | list | tojson }};
-const catBarData = {{ cat_bar | tojson }};
-
-// Sort by total descending for better readability (top 13, all shown)
-const sortedCat = [...catBarData].sort((a, b) => b.total - a.total).filter(c => c.total > 0);
-
+const payerNames  = {{ payers | map(attribute='name')  | list | tojson }};
+const catBarData  = {{ cat_bar | tojson }};
+const sortedCat   = [...catBarData].sort((a, b) => b.total - a.total).filter(c => c.total > 0);
 const catDatasets = payerNames.map((name, i) => ({
   label: name,
-  data: sortedCat.map(c => {
-    const found = c.payeurs.find(p => p.name === name);
-    return found ? found.val : 0;
-  }),
+  data: sortedCat.map(c => { const f = c.payeurs.find(p => p.name === name); return f ? f.val : 0; }),
   backgroundColor: payerColors[i],
   borderRadius: 3,
   borderWidth: 0
 }));
-
 new Chart(document.getElementById('catBar'), {
   type: 'bar',
   data: { labels: sortedCat.map(c => c.cat), datasets: catDatasets },
@@ -208,54 +457,22 @@ new Chart(document.getElementById('catBar'), {
 });
 {% endif %}
 
-// Évolution 6 mois
 const evoData = {{ evolution | tojson }};
 new Chart(document.getElementById('evolutionChart'), {
   type: 'line',
   data: {
     labels: evoData.map(e => e.label),
     datasets: [
-      {
-        label: 'Dépenses',
-        data: evoData.map(e => e.dep),
-        borderColor: '#c87a25',
-        backgroundColor: 'rgba(200,122,37,.08)',
-        tension: 0.35,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 6
-      },
-      {
-        label: 'Revenus',
-        data: evoData.map(e => e.rev),
-        borderColor: '#2563a8',
-        backgroundColor: 'rgba(37,99,168,.06)',
-        tension: 0.35,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 6
-      },
-      {
-        label: 'Épargne',
-        data: evoData.map(e => e.epargne),
-        borderColor: '#2f6d4a',
-        backgroundColor: 'rgba(47,109,74,.06)',
-        tension: 0.35,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        borderDash: [5, 3]
-      }
+      { label: 'Dépenses', data: evoData.map(e => e.dep),    borderColor: '#c87a25', backgroundColor: 'rgba(200,122,37,.08)', tension: 0.35, fill: true, pointRadius: 4, pointHoverRadius: 6 },
+      { label: 'Revenus',  data: evoData.map(e => e.rev),    borderColor: '#2563a8', backgroundColor: 'rgba(37,99,168,.06)',  tension: 0.35, fill: true, pointRadius: 4, pointHoverRadius: 6 },
+      { label: 'Épargne',  data: evoData.map(e => e.epargne), borderColor: '#2f6d4a', backgroundColor: 'rgba(47,109,74,.06)',  tension: 0.35, fill: true, pointRadius: 4, pointHoverRadius: 6, borderDash: [5, 3] }
     ]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
-      y: {
-        grid: { color: '#f0ebe0' },
-        ticks: { callback: v => fmtMoney(v) }
-      },
+      y: { grid: { color: '#f0ebe0' }, ticks: { callback: v => fmtMoney(v) } },
       x: { grid: { display: false } }
     },
     plugins: {
