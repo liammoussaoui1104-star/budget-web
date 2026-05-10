@@ -715,6 +715,7 @@ def admin_send_email():
         payload = {
             "sender": {"email": from_email, "name": "Budget Familial"},
             "to": [{"email": email_addr}],
+            "replyTo": {"email": "contact.budgetfamilial@gmail.com"},
             "subject": subject,
             "htmlContent": html_content,
         }
@@ -859,6 +860,7 @@ def _send_welcome_email(to_email, household_name):
     payload = {
         "sender": {"email": from_email, "name": "Budget Familial"},
         "to": [{"email": to_email}],
+        "replyTo": {"email": "contact.budgetfamilial@gmail.com"},
         "subject": f"Bienvenue sur Budget Familial, {household_name} !",
         "htmlContent": html,
     }
@@ -880,6 +882,7 @@ def _send_reset_email(to_email, reset_url):
     payload = {
         "sender": {"email": from_email, "name": "Budget Familial"},
         "to": [{"email": to_email}],
+        "replyTo": {"email": "contact.budgetfamilial@gmail.com"},
         "subject": "Réinitialisation de ton mot de passe — Budget Familial",
         "htmlContent": (
             "<p>Bonjour,</p>"
