@@ -944,15 +944,22 @@ def api_scan_ticket():
             json=payload, timeout=15
         )
     except Exception as e:
-        return jsonify(ok=False, error="Impossible de contacter Google Vision API"), 500
+        app.logger.error("Vision API connection error: %s", e)
+        return jsonify(ok=False, error=f"Connexion Vision API échouée : {e}"), 500
 
     if resp.status_code != 200:
-        return jsonify(ok=False, error=f"Vision API erreur {resp.status_code}"), 500
+        app.logger.error("Vision API HTTP %s: %s", resp.status_code, resp.text[:500])
+        try:
+            err_detail = resp.json().get("error", {}).get("message", resp.text[:200])
+        except Exception:
+            err_detail = resp.text[:200]
+        return jsonify(ok=False, error=f"Vision API erreur {resp.status_code} : {err_detail}"), 500
 
     result = resp.json()
     try:
         text = result["responses"][0]["fullTextAnnotation"]["text"]
     except (KeyError, IndexError):
+        app.logger.warning("Vision API no text: %s", result)
         return jsonify(ok=False, error="Aucun texte détecté sur l'image")
 
     # Montant : chercher TOTAL suivi d'un prix, sinon le plus grand prix trouvé
