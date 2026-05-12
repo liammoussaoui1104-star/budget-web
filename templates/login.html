@@ -4,53 +4,17 @@
 {% block auth_content %}
 <div class="login-page">
 
-  <!-- Panneau gauche — marque -->
-  <div class="login-brand">
-    <div class="login-brand-inner">
-      <div class="login-logo-mark">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Budget Familial" class="login-logo-img">
-        <span class="login-logo-text">Budget Familial</span>
-      </div>
-
-      <p class="login-tagline">
-        Gérez les finances de votre foyer en toute clarté.
-        Revenus, dépenses, budgets et épargne — tout centralisé,
-        toujours à portée de main.
-      </p>
-
-      <ul class="login-features" role="list">
-        <li>
-          <span class="login-feat-dot"></span>
-          Tableau de bord mensuel par membre
-        </li>
-        <li>
-          <span class="login-feat-dot"></span>
-          Suivi des budgets par catégorie
-        </li>
-        <li>
-          <span class="login-feat-dot"></span>
-          Statistiques et évolution sur 6 mois
-        </li>
-        <li>
-          <span class="login-feat-dot"></span>
-          Export PDF des rapports
-        </li>
-      </ul>
-
-      <div class="login-privacy-note">
-        <span class="login-privacy-icon" aria-hidden="true">🔒</span>
-        <p>
-          Vos données sont strictement confidentielles et
-          visibles uniquement par le titulaire du compte.
-          Aucune donnée n'est partagée ou revendue.
-        </p>
-      </div>
-    </div>
-  </div>
+  <!-- Panneau gauche — image de fond uniquement -->
+  <div class="login-brand"></div>
 
   <!-- Panneau droit — formulaire -->
   <div class="login-form-side">
     <div class="login-form-inner">
+
+      <!-- Logo -->
+      <div class="login-top-logo">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Budget Familial">
+      </div>
 
       <div class="login-form-header">
         <h1 class="login-form-title">Connexion</h1>
@@ -110,8 +74,35 @@
         <a href="{{ url_for('register') }}">Créer un espace familial</a>
       </p>
 
-      <p class="login-contact-link"><a href="{{ url_for('contact') }}">Nous contacter</a></p>
+      <!-- Description app -->
+      <div class="login-app-desc">
+        <p class="login-app-desc-title">
+          <span>Budget Familial</span>
+        </p>
+        <ul class="login-app-features">
+          <li><span class="login-app-feat-dot"></span>Tableau de bord mensuel par membre</li>
+          <li><span class="login-app-feat-dot"></span>Suivi des budgets par catégorie</li>
+          <li><span class="login-app-feat-dot"></span>Statistiques et évolution sur 6 mois</li>
+          <li><span class="login-app-feat-dot"></span>Export PDF des rapports</li>
+        </ul>
+        <p class="login-app-privacy">
+          🔒 Données strictement confidentielles, visibles uniquement par le titulaire du compte. Aucune donnée partagée ou revendue.
+        </p>
+      </div>
+
+      <p class="login-contact-link" style="margin-top:1rem"><a href="{{ url_for('contact') }}">Nous contacter</a></p>
       <p class="login-contact-link"><a href="{{ url_for('politique_confidentialite') }}">Politique de confidentialité</a></p>
+
+      <!-- Instagram -->
+      <div class="login-instagram">
+        <a href="https://www.instagram.com/monbudgetfamilial" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+          </svg>
+          Suivez-nous sur Instagram
+        </a>
+      </div>
+
       <p class="login-signature">© Anas.m</p>
     </div>
   </div>

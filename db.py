@@ -447,6 +447,9 @@ class DB:
     def mark_message_lu(self, msg_id):
         self._run("UPDATE contact_messages SET lu=1 WHERE id=?", (msg_id,))
 
+    def delete_contact_message(self, msg_id):
+        self._run("DELETE FROM contact_messages WHERE id=?", (msg_id,))
+
     # ── Admin ──────────────────────────────────────────────────────────────
 
     def get_admin_stats(self):

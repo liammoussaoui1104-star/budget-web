@@ -157,18 +157,30 @@ def setup():
         uid = current_user.id
 
     if request.method == "POST":
-        names = request.form.getlist("member_name[]")
-        roles = request.form.getlist("member_role[]")
+        household_name = request.form.get("household_name", "").strip()
+        parent1 = request.form.get("parent1_name", "").strip()
+        parent2 = request.form.get("parent2_name", "").strip()
+        child_names = [n.strip() for n in request.form.getlist("child_name[]") if n.strip()]
+        currency = request.form.get("currency", "€").strip()
 
-        names = [n.strip() for n in names if n.strip()]
-        if not names:
-            flash("Ajoute au moins un membre.", "error")
-            return render_template("setup.html")
+        if not parent1:
+            flash("Le prénom du parent 1 est requis.", "error")
+            return render_template("setup.html", CURRENCIES=CURRENCIES)
+
+        members = []
+        members.append((parent1, "Parent", True))
+        if parent2:
+            members.append((parent2, "Parent", True))
+        for child in child_names:
+            members.append((child, "Enfant", False))
+
+        if household_name:
+            db.update_household_name(uid, household_name)
+        if currency in _VALID_CURRENCIES:
+            db.set_currency(uid, currency)
 
         db.delete_all_members(uid)
-        for i, name in enumerate(names):
-            role = roles[i] if i < len(roles) else "Parent"
-            is_payer = (role in ("Payeur", "Parent"))
+        for i, (name, role, is_payer) in enumerate(members):
             color = MEMBER_COLORS[i % len(MEMBER_COLORS)]
             db.add_member(uid, name, role, is_payer, color)
 
@@ -179,7 +191,7 @@ def setup():
         flash("Foyer configuré !", "success")
         return redirect(url_for("dashboard"))
 
-    return render_template("setup.html")
+    return render_template("setup.html", CURRENCIES=CURRENCIES)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -749,6 +761,15 @@ def admin_messages():
     return render_template("admin_messages.html", messages=messages)
 
 
+@app.route("/admin/messages/<int:msg_id>/delete", methods=["POST"])
+@login_required
+def admin_delete_message(msg_id):
+    if not current_user.is_admin:
+        return jsonify(ok=False), 403
+    db.delete_contact_message(msg_id)
+    return jsonify(ok=True)
+
+
 @app.route("/admin/messages/<int:msg_id>/lu", methods=["POST"])
 @login_required
 def admin_mark_lu(msg_id):
@@ -944,6 +965,8 @@ _EMAIL_HEADER = """\
         </td>
       </tr>""".format(logo=_EMAIL_LOGO)
 
+_EMAIL_INSTAGRAM = "https://www.instagram.com/monbudgetfamilial"
+
 _EMAIL_FOOTER = """\
       <tr><td style="padding:0 40px"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0"></td></tr>
       <tr>
@@ -951,11 +974,19 @@ _EMAIL_FOOTER = """\
           <p style="margin:0 0 6px;font-size:12px;color:#9ca3af;line-height:1.6">
             &copy; Anas.m — Budget Familial
           </p>
-          <p style="margin:0;font-size:11px;color:#c4c9d4">
+          <p style="margin:0 0 8px;font-size:11px;color:#c4c9d4">
             <a href="{privacy}" style="color:#6b7280;text-decoration:underline">Politique de confidentialité</a>
           </p>
+          <p style="margin:0;font-size:11px">
+            <a href="{instagram}" style="color:#6b7280;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+              Suivez-nous sur Instagram
+            </a>
+          </p>
         </td>
-      </tr>""".format(privacy=_EMAIL_PRIVACY_URL)
+      </tr>""".format(privacy=_EMAIL_PRIVACY_URL, instagram=_EMAIL_INSTAGRAM)
 
 
 def _email_wrap(body_html):

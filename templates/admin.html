@@ -100,6 +100,7 @@
           <th>Téléphone</th>
           <th>Message</th>
           <th class="text-center">Statut</th>
+          <th class="text-center">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -118,6 +119,10 @@
               Marquer lu
             </button>
             {% endif %}
+          </td>
+          <td class="text-center">
+            <button class="btn btn-sm msg-delete" data-id="{{ msg.id }}"
+                    style="background:#dc2626;color:#fff;border-color:#dc2626">Supprimer</button>
           </td>
         </tr>
         {% endfor %}
@@ -303,6 +308,22 @@ document.querySelectorAll('.msg-mark-lu').forEach(btn => {
         className: 'msg-status-lu',
         textContent: 'Lu'
       }));
+    }
+  });
+});
+
+// Delete message
+document.querySelectorAll('.msg-delete').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const id = btn.dataset.id;
+    if (!confirm('Supprimer ce message définitivement ?')) return;
+    const res = await fetch(`/admin/messages/${id}/delete`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById(`row-${id}`).remove();
+      showToast('Message supprimé ✓');
+    } else {
+      showToast('Erreur lors de la suppression.', false);
     }
   });
 });

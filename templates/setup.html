@@ -2,11 +2,20 @@
 {% block title %}Configuration du foyer — Budget Familial{% endblock %}
 
 {% block auth_content %}
-<div class="auth-page auth-page-wide">
-  <div class="auth-card auth-card-wide">
-    <div class="auth-logo">🏠</div>
-    <h1 class="auth-title">Membres du foyer</h1>
-    <p class="auth-sub">Étape 2 sur 2 — Ajoute les membres de ton foyer</p>
+<div class="auth-page" style="padding: 2rem 1.5rem; align-items: flex-start">
+  <div class="auth-card" style="max-width:460px; margin-top: 2rem">
+
+    <!-- Logo -->
+    <div style="text-align:center; margin-bottom:1.25rem">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="Budget Familial"
+           style="height:48px; border-radius:8px">
+    </div>
+
+    <!-- Progress -->
+    <div class="setup-progress">
+      <div class="setup-progress-bar" id="progressBar" style="width:25%"></div>
+    </div>
+    <p class="setup-step-label" id="stepLabel">Étape 1 sur 4</p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -16,57 +25,206 @@
       {% endif %}
     {% endwith %}
 
-    <form method="POST" action="{{ url_for('setup') }}" class="auth-form" id="setupForm">
-      <div class="members-section">
-        <div class="members-header">
-          <span class="label-text">Membres du foyer</span>
-          <button type="button" class="btn btn-sm btn-outline" id="addMemberBtn">+ Ajouter</button>
-        </div>
-        <div class="members-hint">
-          <strong>Parent</strong> : peut payer une dépense ET apparaît dans "Pour qui ?".<br>
-          <strong>Enfant</strong> : apparaît uniquement dans "Pour qui ?".
-        </div>
+    <form method="POST" action="{{ url_for('setup') }}" id="setupForm">
 
-        <div id="membersList">
-          <div class="member-row" data-index="0">
-            <input type="text" name="member_name[]" placeholder="Prénom" required class="member-input-name">
-            <select name="member_role[]" class="member-input-role">
-              <option value="Parent">Parent</option>
-              <option value="Enfant">Enfant</option>
-            </select>
-            <button type="button" class="btn-remove-member" onclick="removeMember(this)" title="Supprimer">✕</button>
-          </div>
+      <!-- Étape 1 : Nom du foyer -->
+      <div class="setup-step" id="step1">
+        <h2 class="setup-step-title">Nom du foyer</h2>
+        <p class="auth-sub" style="margin-bottom:1.25rem">Comment souhaitez-vous appeler votre foyer ?</p>
+        <div class="form-group">
+          <label for="householdName">Nom du foyer</label>
+          <input type="text" id="householdName" name="household_name"
+                 placeholder="Ex : Famille Dupont" autocomplete="off">
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-full" style="margin-top:1.5rem">Créer le foyer →</button>
+      <!-- Étape 2 : Les parents -->
+      <div class="setup-step hidden" id="step2">
+        <h2 class="setup-step-title">Les parents</h2>
+        <p class="auth-sub" style="margin-bottom:1.25rem">Renseigne les parents du foyer. Le second est optionnel.</p>
+        <div class="form-group">
+          <label for="parent1Name">Parent 1</label>
+          <input type="text" id="parent1Name" name="parent1_name"
+                 placeholder="Prénom" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="parent2Name">
+            Parent 2
+            <span style="font-weight:400; color:var(--sub); font-size:.78rem">(optionnel)</span>
+          </label>
+          <input type="text" id="parent2Name" name="parent2_name"
+                 placeholder="Laisse vide si famille monoparentale" autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Étape 3 : Les enfants -->
+      <div class="setup-step hidden" id="step3">
+        <h2 class="setup-step-title">Les enfants</h2>
+        <p class="auth-sub" style="margin-bottom:1.25rem">Avez-vous des enfants ?</p>
+        <div class="setup-yn-row">
+          <button type="button" class="setup-yn-btn" id="btnYes">Oui</button>
+          <button type="button" class="setup-yn-btn" id="btnNo">Non</button>
+        </div>
+        <input type="hidden" name="has_children" id="hasChildren" value="">
+        <div id="childrenSection" class="hidden" style="margin-top:1.25rem">
+          <div id="childrenList"></div>
+          <button type="button" class="btn btn-sm btn-outline" id="addChildBtn"
+                  style="margin-top:.75rem">+ Ajouter un enfant</button>
+        </div>
+      </div>
+
+      <!-- Étape 4 : La devise -->
+      <div class="setup-step hidden" id="step4">
+        <h2 class="setup-step-title">La devise</h2>
+        <p class="auth-sub" style="margin-bottom:1.25rem">Choisissez la devise affichée dans votre espace.</p>
+        <div class="form-group">
+          <label for="currencySelect">Devise</label>
+          <select name="currency" id="currencySelect">
+            {% for c in CURRENCIES %}
+            <option value="{{ c.symbol }}" {% if c.symbol == '€' %}selected{% endif %}>{{ c.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="setup-nav">
+        <button type="button" class="btn btn-outline" id="btnPrev" style="display:none">← Précédent</button>
+        <button type="button" class="btn btn-primary" id="btnNext">Suivant →</button>
+        <button type="submit" class="btn btn-primary" id="btnSubmit" style="display:none">Créer le foyer →</button>
+      </div>
+
     </form>
   </div>
 </div>
 
+{% block scripts %}
 <script>
-let memberCount = 1;
+const TOTAL = 4;
+let current = 1;
 
-document.getElementById('addMemberBtn').addEventListener('click', function() {
-  const idx = memberCount++;
+const steps = () => Array.from(document.querySelectorAll('.setup-step'));
+const step = (n) => document.getElementById('step' + n);
+const progressBar = document.getElementById('progressBar');
+const stepLabel = document.getElementById('stepLabel');
+const btnPrev = document.getElementById('btnPrev');
+const btnNext = document.getElementById('btnNext');
+const btnSubmit = document.getElementById('btnSubmit');
+
+function showStep(n) {
+  steps().forEach(s => s.classList.add('hidden'));
+  step(n).classList.remove('hidden');
+  current = n;
+  progressBar.style.width = (n / TOTAL * 100) + '%';
+  stepLabel.textContent = 'Étape ' + n + ' sur ' + TOTAL;
+  btnPrev.style.display = n > 1 ? '' : 'none';
+  btnNext.style.display = n < TOTAL ? '' : 'none';
+  btnSubmit.style.display = n === TOTAL ? '' : 'none';
+}
+
+function validateStep(n) {
+  if (n === 1) {
+    // household name is optional, allow empty
+    return true;
+  }
+  if (n === 2) {
+    const p1 = document.getElementById('parent1Name').value.trim();
+    if (!p1) {
+      document.getElementById('parent1Name').focus();
+      showStepError('Le prénom du parent 1 est requis.');
+      return false;
+    }
+    return true;
+  }
+  if (n === 3) {
+    const hc = document.getElementById('hasChildren').value;
+    if (!hc) {
+      showStepError('Indique si tu as des enfants (Oui ou Non).');
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+let stepError = null;
+function showStepError(msg) {
+  clearStepError();
+  stepError = document.createElement('p');
+  stepError.className = 'setup-error';
+  stepError.textContent = msg;
+  const nav = document.querySelector('.setup-nav');
+  nav.parentNode.insertBefore(stepError, nav);
+}
+function clearStepError() {
+  if (stepError) { stepError.remove(); stepError = null; }
+}
+
+btnNext.addEventListener('click', () => {
+  clearStepError();
+  if (!validateStep(current)) return;
+  if (current < TOTAL) showStep(current + 1);
+});
+
+btnPrev.addEventListener('click', () => {
+  clearStepError();
+  if (current > 1) showStep(current - 1);
+});
+
+// Étape 3 : Oui / Non
+const btnYes = document.getElementById('btnYes');
+const btnNo = document.getElementById('btnNo');
+const childrenSection = document.getElementById('childrenSection');
+
+btnYes.addEventListener('click', () => {
+  document.getElementById('hasChildren').value = 'yes';
+  btnYes.classList.add('setup-yn-active');
+  btnNo.classList.remove('setup-yn-active');
+  childrenSection.classList.remove('hidden');
+  if (document.getElementById('childrenList').children.length === 0) addChild();
+});
+
+btnNo.addEventListener('click', () => {
+  document.getElementById('hasChildren').value = 'no';
+  btnNo.classList.add('setup-yn-active');
+  btnYes.classList.remove('setup-yn-active');
+  childrenSection.classList.add('hidden');
+  document.getElementById('childrenList').innerHTML = '';
+});
+
+let childCount = 0;
+function addChild() {
+  const idx = childCount++;
   const div = document.createElement('div');
   div.className = 'member-row';
   div.dataset.index = idx;
   div.innerHTML = `
-    <input type="text" name="member_name[]" placeholder="Prénom" required class="member-input-name">
-    <select name="member_role[]" class="member-input-role">
-      <option value="Parent">Parent</option>
-      <option value="Enfant">Enfant</option>
-    </select>
-    <button type="button" class="btn-remove-member" onclick="removeMember(this)" title="Supprimer">✕</button>
+    <input type="text" name="child_name[]" placeholder="Prénom de l'enfant" class="member-input-name" autocomplete="off">
+    <button type="button" class="btn-remove-member" onclick="removeChild(this)" title="Supprimer">✕</button>
   `;
-  document.getElementById('membersList').appendChild(div);
-});
+  document.getElementById('childrenList').appendChild(div);
+  div.querySelector('input').focus();
+}
 
-function removeMember(btn) {
-  const rows = document.querySelectorAll('.member-row');
+document.getElementById('addChildBtn').addEventListener('click', addChild);
+
+function removeChild(btn) {
+  const rows = document.querySelectorAll('#childrenList .member-row');
   if (rows.length <= 1) return;
   btn.closest('.member-row').remove();
 }
+
+// Validation finale avant submit
+document.getElementById('setupForm').addEventListener('submit', function(e) {
+  const p1 = document.getElementById('parent1Name').value.trim();
+  if (!p1) {
+    e.preventDefault();
+    showStep(2);
+    showStepError('Le prénom du parent 1 est requis.');
+  }
+});
+
+showStep(1);
 </script>
+{% endblock %}
 {% endblock %}
