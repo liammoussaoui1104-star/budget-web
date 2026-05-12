@@ -134,10 +134,19 @@
       <button class="modal-close" onclick="closeModal('modalAdd')">✕</button>
     </div>
     <form id="formAdd" class="modal-form">
+      <!-- Scanner ticket -->
+      <div style="margin-bottom:1rem">
+        <input type="file" id="scanFileInput" accept="image/*" capture="environment" style="display:none" onchange="handleScanFile(this)">
+        <button type="button" class="btn btn-outline btn-full" id="btnScanTicket" onclick="document.getElementById('scanFileInput').click()" style="font-size:.85rem;gap:.4rem">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          📷 Scanner un ticket
+        </button>
+        <p id="scanStatus" style="font-size:.75rem;color:var(--sub);text-align:center;margin:.4rem 0 0;display:none"></p>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label>Montant ({{ current_user.currency }})</label>
-          <input type="number" name="montant" step="0.01" min="0.01" required placeholder="0,00">
+          <input type="number" name="montant" id="addMontant" step="0.01" min="0.01" required placeholder="0,00">
         </div>
         <div class="form-group">
           <label>Jour</label>
@@ -267,6 +276,44 @@
 
 {% block scripts %}
 <script>
+// ── Scan ticket ────────────────────────────────────────────────────────────
+async function handleScanFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('scanStatus');
+  const btn = document.getElementById('btnScanTicket');
+  statusEl.style.display = '';
+  statusEl.textContent = 'Analyse en cours…';
+  btn.disabled = true;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result;
+    try {
+      const res = await fetch('/api/scan_ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        statusEl.textContent = '⚠ ' + data.error;
+      } else {
+        if (data.montant) document.querySelector('#formAdd [name="montant"]').value = data.montant;
+        if (data.jour)    document.getElementById('addJour').value = data.jour;
+        if (data.description) document.querySelector('#formAdd [name="description"]').value = data.description;
+        statusEl.textContent = '✓ Champs remplis automatiquement — vérifiez avant de valider.';
+        statusEl.style.color = 'var(--ok)';
+      }
+    } catch {
+      statusEl.textContent = '⚠ Erreur réseau, réessayez.';
+    }
+    btn.disabled = false;
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
 function fmtMoney(val) {
   val = parseFloat(val) || 0;
   const [int, dec] = val.toFixed(2).split('.');

@@ -917,6 +917,72 @@ def api_courses_vider():
         return jsonify(ok=False, error=str(e)), 400
 
 
+# ── Scan ticket de caisse (Google Vision API) ────────────────────────────
+
+@app.route("/api/scan_ticket", methods=["POST"])
+@login_required
+def api_scan_ticket():
+    import re
+    api_key = os.environ.get("GOOGLE_VISION_API_KEY", "")
+    if not api_key:
+        return jsonify(ok=False, error="GOOGLE_VISION_API_KEY non configurée sur le serveur")
+
+    data = request.get_json()
+    image_data = data.get("image", "")
+    if "," in image_data:
+        image_data = image_data.split(",", 1)[1]
+
+    payload = {
+        "requests": [{
+            "image": {"content": image_data},
+            "features": [{"type": "TEXT_DETECTION", "maxResults": 1}]
+        }]
+    }
+    try:
+        resp = requests.post(
+            f"https://vision.googleapis.com/v1/images:annotate?key={api_key}",
+            json=payload, timeout=15
+        )
+    except Exception as e:
+        return jsonify(ok=False, error="Impossible de contacter Google Vision API"), 500
+
+    if resp.status_code != 200:
+        return jsonify(ok=False, error=f"Vision API erreur {resp.status_code}"), 500
+
+    result = resp.json()
+    try:
+        text = result["responses"][0]["fullTextAnnotation"]["text"]
+    except (KeyError, IndexError):
+        return jsonify(ok=False, error="Aucun texte détecté sur l'image")
+
+    # Montant : chercher TOTAL suivi d'un prix, sinon le plus grand prix trouvé
+    montant = None
+    total_match = re.search(r'(?:TOTAL|Total|total|MONTANT|Montant)\s*[:\s]*(\d{1,5}[.,]\d{2})', text)
+    if total_match:
+        montant = total_match.group(1).replace(",", ".")
+    else:
+        amounts = re.findall(r'\b(\d{1,4}[.,]\d{2})\b', text)
+        if amounts:
+            montant = max(amounts, key=lambda x: float(x.replace(",", ".")))
+            montant = montant.replace(",", ".")
+
+    # Jour : chercher une date JJ/MM/AAAA ou JJ-MM-AAAA
+    jour = None
+    date_match = re.search(r'\b(\d{1,2})[/\-.]\d{1,2}[/\-.]\d{2,4}\b', text)
+    if date_match:
+        jour = date_match.group(1).lstrip("0") or "1"
+
+    # Description : première ligne non vide contenant des lettres
+    description = None
+    for line in text.split("\n"):
+        line = line.strip()
+        if line and re.search(r'[a-zA-ZÀ-ÿ]', line) and len(line) >= 3:
+            description = line[:60]
+            break
+
+    return jsonify(ok=True, montant=montant, jour=jour, description=description)
+
+
 # ── Politique de confidentialité ──────────────────────────────────────────
 
 @app.route("/politique-confidentialite")

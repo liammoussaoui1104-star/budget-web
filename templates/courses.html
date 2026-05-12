@@ -41,15 +41,13 @@
 <!-- Section : À acheter -->
 <div id="sectionTodo">
   <div class="courses-section-label">À acheter</div>
+  <p class="courses-tap-hint">Appuyez sur un article pour le cocher</p>
   <div class="card" id="listTodo">
     {% set todo = items | selectattr('cochee', 'equalto', 0) | list %}
     {% if todo %}
       {% for item in todo %}
-      <div class="courses-item" id="item-{{ item.id }}" data-id="{{ item.id }}" data-cochee="0">
-        <label class="courses-check-wrap">
-          <input type="checkbox" class="courses-checkbox" onchange="toggleItem({{ item.id }}, this)">
-          <span class="courses-checkmark"></span>
-        </label>
+      <div class="courses-item" id="item-{{ item.id }}" data-id="{{ item.id }}" data-cochee="0" onclick="handleRowClick(event, {{ item.id }})">
+        <span class="courses-check-icon">⭕</span>
         <div class="courses-item-body">
           <span class="courses-nom">{{ item.nom }}</span>
           <span class="courses-qty">× {{ item.quantite }}</span>
@@ -73,11 +71,8 @@
   <div class="courses-section-label courses-section-done">Dans le panier</div>
   <div class="card" id="listDone">
     {% for item in done %}
-    <div class="courses-item courses-item-done" id="item-{{ item.id }}" data-id="{{ item.id }}" data-cochee="1">
-      <label class="courses-check-wrap">
-        <input type="checkbox" class="courses-checkbox" checked onchange="toggleItem({{ item.id }}, this)">
-        <span class="courses-checkmark"></span>
-      </label>
+    <div class="courses-item courses-item-done" id="item-{{ item.id }}" data-id="{{ item.id }}" data-cochee="1" onclick="handleRowClick(event, {{ item.id }})">
+      <span class="courses-check-icon">✅</span>
       <div class="courses-item-body">
         <span class="courses-nom">{{ item.nom }}</span>
         <span class="courses-qty">× {{ item.quantite }}</span>
@@ -233,19 +228,25 @@ function updateCounters() {
 
 // ── Toggle ───────────────────────────────────────────────────────────────
 
-async function toggleItem(id, checkbox) {
+function handleRowClick(event, id) {
+  if (event.target.closest('.courses-del')) return;
+  toggleItem(id);
+}
+
+async function toggleItem(id) {
   const res  = await fetch(`/api/courses/${id}/toggle`, { method: 'POST' });
   const data = await res.json();
-  if (!data.ok) { checkbox.checked = !checkbox.checked; return; }
+  if (!data.ok) return;
 
   const el = document.getElementById(`item-${id}`);
+  const icon = el.querySelector('.courses-check-icon');
   if (data.cochee === 1) {
-    // Move to "Dans le panier"
     el.classList.add('courses-item-done');
+    if (icon) icon.textContent = '✅';
     document.getElementById('listDone').appendChild(el);
   } else {
-    // Move back to "À acheter"
     el.classList.remove('courses-item-done');
+    if (icon) icon.textContent = '⭕';
     const listTodo = document.getElementById('listTodo');
     const emptyEl  = document.getElementById('emptyTodo');
     if (emptyEl) listTodo.insertBefore(el, emptyEl);
@@ -321,11 +322,9 @@ async function submitAdd() {
   el.id = `item-${data.id}`;
   el.dataset.id = data.id;
   el.dataset.cochee = '0';
+  el.setAttribute('onclick', `handleRowClick(event, ${data.id})`);
   el.innerHTML = `
-    <label class="courses-check-wrap">
-      <input type="checkbox" class="courses-checkbox" onchange="toggleItem(${data.id}, this)">
-      <span class="courses-checkmark"></span>
-    </label>
+    <span class="courses-check-icon">⭕</span>
     <div class="courses-item-body">
       <span class="courses-nom">${escHtml(nom)}</span>
       <span class="courses-qty">× ${escHtml(qte)}</span>
@@ -355,10 +354,12 @@ function escHtml(str) {
 function openConvertModal() {
   document.getElementById('cvMontant').value = '';
   document.getElementById('modalConvert').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
   document.getElementById('cvMontant').focus();
 }
 function closeConvertModal() {
   document.getElementById('modalConvert').style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 async function submitConvert() {

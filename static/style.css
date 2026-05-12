@@ -1247,38 +1247,27 @@ img { display: block; max-width: 100%; }
   transition: background .12s;
 }
 .courses-item:last-child { border-bottom: none; }
+.courses-item { cursor: pointer; }
 .courses-item:hover { background: var(--input); }
+.courses-item:active { background: oklch(from var(--accent) l c h / .06); }
 .courses-item-done .courses-nom { text-decoration: line-through; color: var(--sub); }
 .courses-item-done .courses-qty { color: var(--sub); }
 .courses-item-done { background: #f6faf7; }
 
-.courses-check-wrap {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
+.courses-check-icon {
+  font-size: 1.15rem;
   flex-shrink: 0;
+  line-height: 1;
+  user-select: none;
+  transition: transform .12s ease-out;
 }
-.courses-checkbox { display: none; }
-.courses-checkmark {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border);
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background .15s, border-color .15s;
-  flex-shrink: 0;
-}
-.courses-checkbox:checked + .courses-checkmark {
-  background: var(--ok);
-  border-color: var(--ok);
-}
-.courses-checkbox:checked + .courses-checkmark::after {
-  content: '✓';
-  color: #fff;
+.courses-item:active .courses-check-icon { transform: scale(.85); }
+
+.courses-tap-hint {
   font-size: .75rem;
-  font-weight: 700;
+  color: var(--sub);
+  text-align: center;
+  margin: -.25rem 0 .5rem;
 }
 
 .courses-item-body {
