@@ -126,6 +126,16 @@
   </form>
 </div>
 
+<!-- Zone de danger -->
+<div class="card settings-section" style="border-color:#fca5a5">
+  <div class="card-title" style="color:#dc2626">Zone de danger</div>
+  <p class="settings-desc">La suppression est <strong>irréversible</strong> : toutes tes données (transactions, membres, budgets, statistiques) seront définitivement effacées.</p>
+  <button class="btn" id="btnDeleteAccount"
+          style="background:#dc2626;color:#fff;border-color:#dc2626">
+    Supprimer mon compte et toutes mes données
+  </button>
+</div>
+
 <div id="toastMsg" class="toast hidden"></div>
 {% endblock %}
 
@@ -281,5 +291,22 @@ function showToast(msg, ok = true) {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => { t.className = 'toast hidden'; }, 3500);
 }
+
+// Suppression compte
+document.getElementById('btnDeleteAccount').addEventListener('click', async () => {
+  const confirmed = confirm(
+    'ATTENTION : cette action est irréversible.\n\nToutes tes données seront définitivement supprimées (transactions, budgets, membres, statistiques).\n\nÉcris "SUPPRIMER" pour confirmer.'
+  );
+  if (!confirmed) return;
+  const code = prompt('Tape SUPPRIMER pour confirmer :');
+  if (code !== 'SUPPRIMER') { showToast('Suppression annulée.', false); return; }
+  const res = await fetch('/api/delete-account', { method: 'POST' });
+  const json = await res.json();
+  if (json.ok) {
+    window.location.href = '/login';
+  } else {
+    showToast('Erreur : ' + (json.error || ''), false);
+  }
+});
 </script>
 {% endblock %}

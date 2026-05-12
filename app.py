@@ -112,6 +112,7 @@ def register():
         pwd = request.form.get("password", "")
         pwd2 = request.form.get("password2", "")
         household = request.form.get("household_name", "").strip()
+        rgpd = request.form.get("rgpd_accept")
         if not email or not pwd:
             flash("Email et mot de passe requis.", "error")
             return render_template("register.html")
@@ -124,16 +125,26 @@ def register():
         if not household:
             flash("Donne un nom au foyer.", "error")
             return render_template("register.html")
+        if not rgpd:
+            flash("Tu dois accepter la politique de confidentialité.", "error")
+            return render_template("register.html")
         uid = db.create_user(email, generate_password_hash(pwd), household)
         if uid is None:
             flash("Cet email est déjà utilisé.", "error")
             return render_template("register.html")
+        token = secrets.token_urlsafe(32)
+        db.set_verification_token(uid, token)
         session["pending_uid"] = uid
+        try:
+            _send_verification_email(email, household, token)
+        except Exception as e:
+            app.logger.error("Brevo verification email error: %s", e)
         try:
             _send_welcome_email(email, household)
         except Exception as e:
             app.logger.error("Brevo welcome email error: %s", e)
-        return redirect(url_for("setup"))
+        flash("Un email de confirmation a été envoyé. Vérifie ta boîte mail avant de te connecter.", "success")
+        return redirect(url_for("login"))
     return render_template("register.html")
 
 
@@ -183,10 +194,39 @@ def login():
             if row["blocked"]:
                 flash("Ton compte a été suspendu. Contacte l'administrateur.", "error")
                 return render_template("login.html")
+            if not row["email_verified"]:
+                flash("EMAIL_NOT_VERIFIED:" + email, "error")
+                return render_template("login.html")
             login_user(User(row), remember=request.form.get("remember") == "on")
             return redirect(request.args.get("next") or url_for("dashboard"))
         flash("Email ou mot de passe incorrect.", "error")
     return render_template("login.html")
+
+
+@app.route("/verify-email/<token>")
+def verify_email(token):
+    row = db.get_user_by_verification_token(token)
+    if not row:
+        flash("Lien invalide ou déjà utilisé.", "error")
+        return redirect(url_for("login"))
+    db.verify_email(row["id"])
+    flash("Email confirmé ! Tu peux maintenant te connecter.", "success")
+    return redirect(url_for("login"))
+
+
+@app.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    email = request.form.get("email", "").strip().lower()
+    row = db.get_user_by_email(email)
+    if row and not row["email_verified"]:
+        token = secrets.token_urlsafe(32)
+        db.set_verification_token(row["id"], token)
+        try:
+            _send_verification_email(email, row["household_name"], token)
+        except Exception as e:
+            app.logger.error("Brevo resend verification error: %s", e)
+    flash("Si ce compte existe et n'est pas encore vérifié, un email a été renvoyé.", "success")
+    return redirect(url_for("login"))
 
 
 @app.route("/logout")
@@ -856,6 +896,25 @@ def api_courses_vider():
         return jsonify(ok=False, error=str(e)), 400
 
 
+# ── Politique de confidentialité ──────────────────────────────────────────
+
+@app.route("/politique-confidentialite")
+def politique_confidentialite():
+    return render_template("politique_confidentialite.html")
+
+
+@app.route("/api/delete-account", methods=["POST"])
+@login_required
+def api_delete_account():
+    uid = current_user.id
+    try:
+        logout_user()
+        db.delete_user(uid)
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
 # ── Guide ──────────────────────────────────────────────────────────────────
 
 @app.route("/guide")
@@ -873,116 +932,60 @@ def guide():
 
 # ── Emails transactionnels ─────────────────────────────────────────────────
 
-def _send_welcome_email(to_email, household_name):
-    import requests as _req
-    api_key = os.environ.get("BREVO_API_KEY", "")
-    from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
-    html = f"""<!DOCTYPE html>
+_EMAIL_LOGO = "https://monbudgetfamilial.com/static/logo.png"
+_EMAIL_PRIVACY_URL = "https://monbudgetfamilial.com/politique-confidentialite"
+
+_EMAIL_HEADER = """\
+      <tr>
+        <td style="background:linear-gradient(135deg,#1e3a5f 0%,#2563a8 100%);padding:28px 40px;text-align:center">
+          <img src="{logo}" alt="Budget Familial" height="56" style="display:block;margin:0 auto 10px;border-radius:8px">
+          <div style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-.5px">Budget Familial</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:4px">Gérez votre budget en toute sérénité</div>
+        </td>
+      </tr>""".format(logo=_EMAIL_LOGO)
+
+_EMAIL_FOOTER = """\
+      <tr><td style="padding:0 40px"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0"></td></tr>
+      <tr>
+        <td style="padding:20px 40px;text-align:center">
+          <p style="margin:0 0 6px;font-size:12px;color:#9ca3af;line-height:1.6">
+            &copy; Anas.m — Budget Familial
+          </p>
+          <p style="margin:0;font-size:11px;color:#c4c9d4">
+            <a href="{privacy}" style="color:#6b7280;text-decoration:underline">Politique de confidentialité</a>
+          </p>
+        </td>
+      </tr>""".format(privacy=_EMAIL_PRIVACY_URL)
+
+
+def _email_wrap(body_html):
+    """Wrap body HTML in the shared email shell."""
+    return f"""<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 16px">
   <tr><td align="center">
     <table width="100%" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-
-      <!-- Header -->
-      <tr>
-        <td style="background:linear-gradient(135deg,#1e3a5f 0%,#2563a8 100%);padding:36px 40px;text-align:center">
-          <div style="font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-.5px">Budget Familial</div>
-          <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:6px">Gérez votre budget en toute sérénité</div>
-        </td>
-      </tr>
-
-      <!-- Body -->
-      <tr>
-        <td style="padding:40px 40px 32px">
-          <p style="margin:0 0 20px;font-size:22px;font-weight:600;color:#1e3a5f">
-            Bienvenue, {household_name}&nbsp;! 🎉
-          </p>
-          <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">
-            Merci d'avoir rejoint <strong>Budget Familial</strong>. Ton foyer est maintenant configuré et prêt à gérer vos finances en toute simplicité.
-          </p>
-          <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">
-            L'application va continuer à évoluer grâce aux retours des utilisateurs comme toi. Chaque suggestion compte et contribue à rendre l'expérience meilleure pour tous les foyers.
-          </p>
-          <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.7">
-            Et bonne nouvelle : <strong>Budget Familial sera bientôt disponible sur App Store et Play Store</strong> pour encore plus de praticité au quotidien. Reste connecté !
-          </p>
-
-          <!-- Astuce écran d'accueil -->
-          <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px">
-            <tr>
-              <td style="background:#f0f4fa;border-left:3px solid #2563a8;border-radius:8px;padding:20px 24px">
-                <p style="margin:0 0 14px;font-size:15px;font-weight:600;color:#1e3a5f">
-                  📲 Astuce : ajoutez l'app sur votre écran d'accueil
-                </p>
-                <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151">🍎 iPhone (Safari)</p>
-                <ol style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#374151;line-height:1.8">
-                  <li>Ouvrez Safari et accédez à l'application</li>
-                  <li>Appuyez sur l'icône <strong>Partager</strong> (carré avec flèche ↑) en bas</li>
-                  <li>Faites défiler et appuyez sur <strong>« Sur l'écran d'accueil »</strong></li>
-                  <li>Appuyez sur <strong>« Ajouter »</strong> en haut à droite</li>
-                </ol>
-                <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151">🤖 Android (Chrome)</p>
-                <ol style="margin:0;padding-left:20px;font-size:13px;color:#374151;line-height:1.8">
-                  <li>Ouvrez Chrome et accédez à l'application</li>
-                  <li>Appuyez sur les <strong>3 points</strong> en haut à droite</li>
-                  <li>Appuyez sur <strong>« Ajouter à l'écran d'accueil »</strong></li>
-                  <li>Confirmez en appuyant sur <strong>« Ajouter »</strong></li>
-                </ol>
-              </td>
-            </tr>
-          </table>
-
-          <!-- CTA Guide -->
-          <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px">
-            <tr>
-              <td align="center">
-                <a href="https://monbudgetfamilial.com/guide"
-                   style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px">
-                  📖 Consulter le guide d'utilisation
-                </a>
-              </td>
-            </tr>
-          </table>
-
-          <!-- CTA Contact -->
-          <table cellpadding="0" cellspacing="0" width="100%">
-            <tr>
-              <td align="center">
-                <a href="https://monbudgetfamilial.com/contact"
-                   style="display:inline-block;background:#f8fafc;color:#2563a8;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;border:1.5px solid #2563a8">
-                  ✉️ Envoyer une suggestion
-                </a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <!-- Divider -->
-      <tr><td style="padding:0 40px"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0"></td></tr>
-
-      <!-- Footer -->
-      <tr>
-        <td style="padding:24px 40px;text-align:center">
-          <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6">
-            Tu reçois cet email car tu viens de créer un compte sur Budget Familial.<br>
-            &copy; Anas.m — Budget Familial
-          </p>
-        </td>
-      </tr>
-
+{_EMAIL_HEADER}
+      <tr><td style="padding:36px 40px 32px">{body_html}</td></tr>
+{_EMAIL_FOOTER}
     </table>
   </td></tr>
 </table>
 </body>
 </html>"""
+
+
+def _brevo_send(to_email, subject, html):
+    import requests as _req
+    api_key = os.environ.get("BREVO_API_KEY", "")
+    from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
     payload = {
         "sender": {"email": from_email, "name": "Budget Familial"},
         "to": [{"email": to_email}],
         "replyTo": {"email": "contact.budgetfamilial@gmail.com"},
-        "subject": f"Bienvenue sur Budget Familial, {household_name} !",
+        "subject": subject,
         "htmlContent": html,
     }
     resp = _req.post(
@@ -994,34 +997,106 @@ def _send_welcome_email(to_email, household_name):
     resp.raise_for_status()
 
 
+def _send_verification_email(to_email, household_name, token):
+    verify_url = f"https://monbudgetfamilial.com/verify-email/{token}"
+    body = f"""
+      <p style="margin:0 0 16px;font-size:20px;font-weight:600;color:#1e3a5f">Confirme ton adresse email</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">
+        Bonjour {household_name},<br>
+        Merci de t'être inscrit sur <strong>Budget Familial</strong>. Il ne reste qu'une étape :
+        confirmer ton adresse email.
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin:24px 0">
+        <tr><td align="center">
+          <a href="{verify_url}"
+             style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;
+                    font-size:15px;font-weight:600;padding:14px 36px;border-radius:8px">
+            ✅ Confirmer mon email
+          </a>
+        </td></tr>
+      </table>
+      <p style="margin:0 0 8px;font-size:13px;color:#6b7280">
+        Ou copie ce lien dans ton navigateur :<br>
+        <code style="font-size:12px;color:#374151">{verify_url}</code>
+      </p>
+      <p style="margin:16px 0 0;font-size:13px;color:#9ca3af">
+        Ce lien est valable <strong>24 heures</strong>.
+        Si tu n'es pas à l'origine de cette inscription, ignore cet email.
+      </p>"""
+    _brevo_send(to_email, "Confirme ton adresse email — Budget Familial", _email_wrap(body))
+
+
+def _send_welcome_email(to_email, household_name):
+    body = f"""
+      <p style="margin:0 0 20px;font-size:22px;font-weight:600;color:#1e3a5f">Bienvenue, {household_name}&nbsp;! 🎉</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">
+        Merci d'avoir rejoint <strong>Budget Familial</strong>. Ton foyer est maintenant configuré et prêt à gérer vos finances en toute simplicité.
+      </p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">
+        L'application évolue grâce aux retours des utilisateurs. Chaque suggestion contribue à rendre l'expérience meilleure pour tous.
+      </p>
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.7">
+        <strong>Budget Familial sera bientôt disponible sur App Store et Play Store.</strong> Reste connecté !
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px">
+        <tr>
+          <td style="background:#f0f4fa;border-radius:8px;padding:20px 24px">
+            <p style="margin:0 0 14px;font-size:15px;font-weight:600;color:#1e3a5f">📲 Ajouter l'app sur l'écran d'accueil</p>
+            <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#374151">🍎 iPhone (Safari)</p>
+            <ol style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#374151;line-height:1.8">
+              <li>Ouvrez Safari et accédez à l'application</li>
+              <li>Icône <strong>Partager</strong> (carré ↑) en bas</li>
+              <li><strong>« Sur l'écran d'accueil »</strong> puis <strong>« Ajouter »</strong></li>
+            </ol>
+            <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#374151">🤖 Android (Chrome)</p>
+            <ol style="margin:0;padding-left:20px;font-size:13px;color:#374151;line-height:1.8">
+              <li>Ouvrez Chrome et accédez à l'application</li>
+              <li>Menu <strong>3 points</strong> en haut à droite</li>
+              <li><strong>« Ajouter à l'écran d'accueil »</strong></li>
+            </ol>
+          </td>
+        </tr>
+      </table>
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:12px">
+        <tr><td align="center">
+          <a href="https://monbudgetfamilial.com/guide"
+             style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px">
+            📖 Consulter le guide d'utilisation
+          </a>
+        </td></tr>
+      </table>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr><td align="center">
+          <a href="https://monbudgetfamilial.com/contact"
+             style="display:inline-block;background:#f8fafc;color:#2563a8;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;border:1.5px solid #2563a8">
+            ✉️ Envoyer une suggestion
+          </a>
+        </td></tr>
+      </table>"""
+    _brevo_send(to_email, f"Bienvenue sur Budget Familial, {household_name} !", _email_wrap(body))
+
+
 # ── Mot de passe oublié ────────────────────────────────────────────────────
 
 def _send_reset_email(to_email, reset_url):
-    import requests as _req
-    api_key = os.environ.get("BREVO_API_KEY", "")
-    from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
-    payload = {
-        "sender": {"email": from_email, "name": "Budget Familial"},
-        "to": [{"email": to_email}],
-        "replyTo": {"email": "contact.budgetfamilial@gmail.com"},
-        "subject": "Réinitialisation de ton mot de passe — Budget Familial",
-        "htmlContent": (
-            "<p>Bonjour,</p>"
-            "<p>Tu as demandé à réinitialiser ton mot de passe.</p>"
-            f'<p><a href="{reset_url}" style="color:#2563a8">Cliquer ici pour choisir un nouveau mot de passe</a></p>'
-            f"<p>Ou copie ce lien dans ton navigateur :<br><code>{reset_url}</code></p>"
-            "<p>Ce lien est valable <strong>1 heure</strong>. "
-            "Si tu n'es pas à l'origine de cette demande, ignore cet email.</p>"
-            "<p>— Budget Familial</p>"
-        )
-    }
-    resp = _req.post(
-        "https://api.brevo.com/v3/smtp/email",
-        json=payload,
-        headers={"api-key": api_key, "Content-Type": "application/json"},
-        timeout=10,
-    )
-    resp.raise_for_status()
+    body = f"""
+      <p style="margin:0 0 16px;font-size:20px;font-weight:600;color:#1e3a5f">Réinitialisation du mot de passe</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7">Tu as demandé à réinitialiser ton mot de passe. Clique sur le bouton ci-dessous :</p>
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin:24px 0">
+        <tr><td align="center">
+          <a href="{reset_url}"
+             style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 36px;border-radius:8px">
+            🔑 Choisir un nouveau mot de passe
+          </a>
+        </td></tr>
+      </table>
+      <p style="margin:0 0 8px;font-size:13px;color:#6b7280">
+        Ou copie ce lien :<br><code style="font-size:12px;color:#374151">{reset_url}</code>
+      </p>
+      <p style="margin:16px 0 0;font-size:13px;color:#9ca3af">
+        Ce lien est valable <strong>1 heure</strong>. Si tu n'es pas à l'origine de cette demande, ignore cet email.
+      </p>"""
+    _brevo_send(to_email, "Réinitialisation de ton mot de passe — Budget Familial", _email_wrap(body))
 
 
 def _send_contact_notification(nom, email, telephone, message):
@@ -1029,20 +1104,20 @@ def _send_contact_notification(nom, email, telephone, message):
     api_key = os.environ.get("BREVO_API_KEY", "")
     from_email = os.environ.get("MAIL_FROM", "noreply@budget-familial.app")
     tel_line = f"<p><strong>Téléphone :</strong> {telephone}</p>" if telephone else ""
+    html_body = (
+        "<p style='margin:0 0 12px;font-size:15px;font-weight:600;color:#1e3a5f'>Nouveau message de contact</p>"
+        f"<p><strong>Nom :</strong> {nom}</p>"
+        f"<p><strong>Email :</strong> {email}</p>"
+        f"{tel_line}"
+        "<p><strong>Message :</strong></p>"
+        f"<blockquote style='background:#f8fafc;border-radius:6px;padding:12px 16px;margin:0;color:#374151'>{message}</blockquote>"
+    )
     payload = {
         "sender": {"email": from_email, "name": "Budget Familial"},
         "to": [{"email": "contact.budgetfamilial@gmail.com", "name": "Anas"}],
         "replyTo": {"email": email, "name": nom},
         "subject": f"Nouveau message de contact — {nom}",
-        "htmlContent": (
-            "<p>Tu as reçu un nouveau message via le formulaire de contact.</p>"
-            f"<p><strong>Nom :</strong> {nom}</p>"
-            f"<p><strong>Email :</strong> {email}</p>"
-            f"{tel_line}"
-            f"<p><strong>Message :</strong></p>"
-            f"<blockquote style='border-left:3px solid #ccc;margin:0;padding:0 1em;color:#555'>{message}</blockquote>"
-            "<p style='color:#999;font-size:.85em'>— Budget Familial</p>"
-        )
+        "htmlContent": _email_wrap(html_body),
     }
     resp = _req.post(
         "https://api.brevo.com/v3/smtp/email",

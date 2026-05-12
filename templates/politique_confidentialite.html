@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Politique de confidentialité — Budget Familial{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page">
+  <div class="auth-card" style="max-width:680px;text-align:left">
+    <div style="text-align:center;margin-bottom:1.5rem">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="Budget Familial" style="height:48px;border-radius:8px;margin-bottom:.75rem;display:block;margin-left:auto;margin-right:auto">
+      <h1 style="font-size:1.4rem;font-weight:700;color:#1e3a5f;margin:0">Politique de confidentialité</h1>
+      <p style="font-size:.85rem;color:#9ca3af;margin:.4rem 0 0">Dernière mise à jour : mai 2025</p>
+    </div>
+
+    <section style="margin-bottom:1.5rem">
+      <h2 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">1. Données collectées</h2>
+      <p style="font-size:.9rem;color:#374151;line-height:1.7;margin:0">
+        Budget Familial collecte uniquement les données strictement nécessaires au fonctionnement de l'application :
+        adresse email, mot de passe (chiffré), nom du foyer, membres du foyer, revenus, dépenses et budgets renseignés par l'utilisateur.
+      </p>
+    </section>
+
+    <section style="margin-bottom:1.5rem">
+      <h2 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">2. Utilisation des données</h2>
+      <p style="font-size:.9rem;color:#374151;line-height:1.7;margin:0">
+        Les données sont utilisées exclusivement pour fournir les fonctionnalités de l'application (suivi budgétaire, statistiques, export)
+        et pour envoyer des emails transactionnels (confirmation d'inscription, réinitialisation de mot de passe).
+        Aucune donnée n'est exploitée à des fins commerciales ou publicitaires.
+      </p>
+    </section>
+
+    <section style="margin-bottom:1.5rem">
+      <h2 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">3. Confidentialité et partage</h2>
+      <p style="font-size:.9rem;color:#374151;line-height:1.7;margin:0">
+        Tes données sont <strong>strictement confidentielles</strong> et visibles uniquement par le titulaire du compte.
+        Elles ne sont ni vendues, ni louées, ni partagées avec des tiers, sauf obligation légale.
+        L'hébergement est assuré via des prestataires de confiance (Render, Brevo) qui ne traitent les données qu'à notre demande.
+      </p>
+    </section>
+
+    <section style="margin-bottom:1.5rem">
+      <h2 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">4. Sécurité</h2>
+      <p style="font-size:.9rem;color:#374151;line-height:1.7;margin:0">
+        Les mots de passe sont stockés sous forme hachée (bcrypt). Les communications sont chiffrées via HTTPS.
+        L'accès à la base de données est restreint aux seuls services applicatifs.
+      </p>
+    </section>
+
+    <section style="margin-bottom:1.5rem">
+      <h2 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">5. Durée de conservation</h2>
+      <p style="font-size:.9rem;color:#374151;line-height:1.7;margin:0">
+        Les données sont conservées tant que le compte est actif. En cas de suppression du compte, toutes les données
+        associées sont immédiatement et définitivement effacées.
+      </p>
+    </section>
+
+    <section style="margin-bottom:1.5rem">
+      <h2 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">6. Droits de l'utilisateur</h2>
+      <p style="font-size:.9rem;color:#374151;line-height:1.7;margin:0">
+        Conformément au RGPD, tu disposes d'un droit d'accès, de rectification et de suppression de tes données.
+        Pour supprimer ton compte et toutes tes données, rends-toi dans <strong>Paramètres → Zone de danger</strong>.
+        Pour toute question, contacte-nous via <a href="{{ url_for('contact') }}" style="color:#2563a8">le formulaire de contact</a>.
+      </p>
+    </section>
+
+    <section style="margin-bottom:2rem">
+      <h2 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">7. Contact</h2>
+      <p style="font-size:.9rem;color:#374151;line-height:1.7;margin:0">
+        Responsable du traitement : Anas M. — <a href="mailto:contact.budgetfamilial@gmail.com" style="color:#2563a8">contact.budgetfamilial@gmail.com</a>
+      </p>
+    </section>
+
+    <div style="text-align:center;padding-top:1rem;border-top:1px solid #e5e7eb">
+      <a href="{{ url_for('login') }}" class="btn btn-outline" style="font-size:.9rem">← Retour à la connexion</a>
+    </div>
+
+    <p style="text-align:center;margin-top:1.2rem;font-size:.78rem;color:#c4c9d4">© Anas.m — Budget Familial</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Politique de confidentialité</h2>
+</div>
+<div class="card" style="max-width:680px;line-height:1.7;font-size:.92rem;color:#374151">
+  <section style="margin-bottom:1.5rem">
+    <h3 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">1. Données collectées</h3>
+    <p style="margin:0">Budget Familial collecte uniquement les données strictement nécessaires : adresse email, mot de passe (chiffré), nom du foyer, membres, revenus, dépenses et budgets.</p>
+  </section>
+  <section style="margin-bottom:1.5rem">
+    <h3 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">2. Utilisation</h3>
+    <p style="margin:0">Données utilisées exclusivement pour les fonctionnalités de l'app et les emails transactionnels. Aucune exploitation commerciale ou publicitaire.</p>
+  </section>
+  <section style="margin-bottom:1.5rem">
+    <h3 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">3. Confidentialité</h3>
+    <p style="margin:0">Données <strong>strictement confidentielles</strong>, visibles uniquement par le titulaire. Pas de vente, pas de partage tiers hors obligation légale.</p>
+  </section>
+  <section style="margin-bottom:1.5rem">
+    <h3 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">4. Sécurité</h3>
+    <p style="margin:0">Mots de passe hachés (bcrypt), communications chiffrées (HTTPS), accès DB restreint.</p>
+  </section>
+  <section style="margin-bottom:1.5rem">
+    <h3 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">5. Suppression</h3>
+    <p style="margin:0">Va dans <strong>Paramètres → Zone de danger</strong> pour supprimer ton compte et toutes tes données définitivement.</p>
+  </section>
+  <section>
+    <h3 style="font-size:1rem;font-weight:600;color:#2563a8;margin:0 0 .5rem">6. Contact</h3>
+    <p style="margin:0">Anas M. — <a href="mailto:contact.budgetfamilial@gmail.com" style="color:#2563a8">contact.budgetfamilial@gmail.com</a></p>
+  </section>
+</div>
+{% endblock %}

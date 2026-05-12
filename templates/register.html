@@ -4,7 +4,7 @@
 {% block auth_content %}
 <div class="auth-page">
   <div class="auth-card">
-    <div class="auth-logo">🏠</div>
+    <div class="auth-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Budget Familial" style="height:56px;border-radius:10px"></div>
     <h1 class="auth-title">Créer un compte</h1>
     <p class="auth-sub">Étape 1 sur 2 — Identifiants & foyer</p>
 
@@ -35,6 +35,12 @@
         <label for="password2">Confirmer le mot de passe</label>
         <input type="password" id="password2" name="password2" required
                autocomplete="new-password" placeholder="Répète ton mot de passe">
+      </div>
+      <div class="form-group" style="margin-bottom:.5rem">
+        <label class="checkbox-label" style="font-size:.85rem;color:var(--sub);gap:.6rem">
+          <input type="checkbox" name="rgpd_accept" required>
+          <span>J'accepte la <a href="{{ url_for('politique_confidentialite') }}" target="_blank" style="color:var(--primary)">politique de confidentialité</a></span>
+        </label>
       </div>
       <button type="submit" class="btn btn-primary btn-full">Suivant →</button>
     </form>

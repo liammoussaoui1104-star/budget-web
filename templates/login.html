@@ -8,7 +8,7 @@
   <div class="login-brand">
     <div class="login-brand-inner">
       <div class="login-logo-mark">
-        <span class="login-logo-icon">🏠</span>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Budget Familial" class="login-logo-img">
         <span class="login-logo-text">Budget Familial</span>
       </div>
 
@@ -60,7 +60,20 @@
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           {% for cat, msg in messages %}
-            <div class="flash flash-{{ cat }}">{{ msg }}</div>
+            {% if msg.startswith('EMAIL_NOT_VERIFIED:') %}
+              {% set unverified_email = msg[19:] %}
+              <div class="flash flash-error">
+                Ton adresse email n'a pas encore été confirmée. Vérifie ta boîte mail (y compris les spams).
+                <form method="POST" action="{{ url_for('resend_verification') }}" style="margin-top:.5rem">
+                  <input type="hidden" name="email" value="{{ unverified_email }}">
+                  <button type="submit" class="btn btn-sm btn-outline" style="font-size:.8rem;padding:.3rem .8rem">
+                    Renvoyer l'email de confirmation
+                  </button>
+                </form>
+              </div>
+            {% else %}
+              <div class="flash flash-{{ cat }}">{{ msg }}</div>
+            {% endif %}
           {% endfor %}
         {% endif %}
       {% endwith %}
@@ -98,6 +111,7 @@
       </p>
 
       <p class="login-contact-link"><a href="{{ url_for('contact') }}">Nous contacter</a></p>
+      <p class="login-contact-link"><a href="{{ url_for('politique_confidentialite') }}">Politique de confidentialité</a></p>
       <p class="login-signature">© Anas.m</p>
     </div>
   </div>

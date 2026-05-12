@@ -170,12 +170,22 @@ class DB:
             "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN currency TEXT DEFAULT '€'",
+            "ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN verification_token TEXT",
         ]
         for sql in migrations:
             try:
                 self._run(sql)
             except Exception:
                 pass  # column already exists
+
+        # Existing accounts are considered verified
+        try:
+            self._run(
+                "UPDATE users SET email_verified=1 WHERE email_verified=0 AND verification_token IS NULL"
+            )
+        except Exception:
+            pass
 
     def __init__(self):
         self._init()
@@ -459,6 +469,20 @@ class DB:
 
     def set_currency(self, uid, symbol):
         self._run("UPDATE users SET currency=? WHERE id=?", (symbol, uid))
+
+    def set_verification_token(self, uid, token):
+        self._run("UPDATE users SET verification_token=? WHERE id=?", (token, uid))
+
+    def get_user_by_verification_token(self, token):
+        return self._run("SELECT * FROM users WHERE verification_token=?", (token,), fetch="one")
+
+    def verify_email(self, uid):
+        self._run("UPDATE users SET email_verified=1, verification_token=NULL WHERE id=?", (uid,))
+
+    def delete_user(self, uid):
+        for table in ("shopping_list", "depenses", "salaires", "budgets", "members", "reset_tokens"):
+            self._run(f"DELETE FROM {table} WHERE user_id=?", (uid,))
+        self._run("DELETE FROM users WHERE id=?", (uid,))
 
     # ── Reset tokens ───────────────────────────────────────────────────────
 
