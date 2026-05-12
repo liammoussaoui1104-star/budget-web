@@ -76,9 +76,9 @@
 
       <!-- Description app -->
       <div class="login-app-desc">
-        <p class="login-app-desc-title">
-          <span>Budget Familial</span>
-        </p>
+        <div class="login-app-desc-title">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Budget Familial" style="max-width:140px;height:auto;border-radius:8px;display:block;margin:0 auto .6rem">
+        </div>
         <ul class="login-app-features">
           <li><span class="login-app-feat-dot"></span>Tableau de bord mensuel par membre</li>
           <li><span class="login-app-feat-dot"></span>Suivi des budgets par catégorie</li>
@@ -90,16 +90,25 @@
         </p>
       </div>
 
-      <p class="login-contact-link" style="margin-top:1rem"><a href="{{ url_for('contact') }}">Nous contacter</a></p>
-      <p class="login-contact-link"><a href="{{ url_for('politique_confidentialite') }}">Politique de confidentialité</a></p>
-
-      <!-- Instagram -->
-      <div class="login-instagram">
-        <a href="https://www.instagram.com/monbudgetfamilial" target="_blank" rel="noopener">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Liens bas de page -->
+      <div class="login-footer-links">
+        <a href="{{ url_for('contact') }}" class="login-footer-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Nous contacter
+        </a>
+        <a href="{{ url_for('politique_confidentialite') }}" class="login-footer-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Politique de confidentialité
+        </a>
+        <a href="https://www.instagram.com/monbudgetfamilial" target="_blank" rel="noopener" class="login-footer-btn login-footer-btn--instagram">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
           </svg>
-          Suivez-nous sur Instagram
+          Instagram
         </a>
       </div>
 

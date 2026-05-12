@@ -903,22 +903,39 @@ img { display: block; max-width: 100%; }
   padding-top: .7rem;
   margin-top: .7rem;
 }
-.login-instagram {
-  text-align: center;
-  margin-top: 1rem;
+.login-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  justify-content: center;
+  margin-top: 1.25rem;
 }
-.login-instagram a {
+.login-footer-btn {
   display: inline-flex;
   align-items: center;
   gap: .4rem;
-  font-size: .78rem;
-  color: var(--sub);
+  padding: .38rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  font-size: .75rem;
+  color: var(--accent);
   text-decoration: none;
-  opacity: .8;
-  transition: opacity .15s;
+  transition: background .15s, border-color .15s, color .15s;
+  cursor: pointer;
 }
-.login-instagram a:hover { opacity: 1; color: var(--accent); }
-.login-instagram svg { flex-shrink: 0; }
+.login-footer-btn:hover {
+  background: oklch(from var(--accent) l c h / .08);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.login-footer-btn--instagram { color: #c13584; border-color: #c13584; }
+.login-footer-btn--instagram:hover {
+  background: oklch(60% 0.22 350 / .08);
+  border-color: #c13584;
+  color: #c13584;
+}
+.login-footer-btn svg { flex-shrink: 0; }
 
 /* Login responsive */
 @media (max-width: 860px) {
@@ -952,13 +969,6 @@ img { display: block; max-width: 100%; }
 }
 .contact-card textarea:focus { outline: none; border-color: var(--accent); }
 .contact-link-sep { display: none; }
-.login-contact-link {
-  text-align: center;
-  font-size: .8rem;
-  margin-top: .75rem;
-}
-.login-contact-link a { color: var(--sub); }
-.login-contact-link a:hover { color: var(--accent); }
 
 /* ── Admin messages ──────────────────────────────────────────────────────── */
 .admin-badge {
