@@ -134,7 +134,7 @@
       <button class="modal-close" onclick="closeModal('modalAdd')">✕</button>
     </div>
     <form id="formAdd" class="modal-form">
-      <!-- Scanner ticket -->
+      <!-- Scanner ticket — temporairement masqué
       <div style="margin-bottom:1rem">
         <input type="file" id="scanFileInput" accept="image/*" capture="environment" style="display:none" onchange="handleScanFile(this)">
         <button type="button" class="btn btn-outline btn-full" id="btnScanTicket" onclick="document.getElementById('scanFileInput').click()" style="font-size:.85rem;gap:.4rem">
@@ -143,6 +143,7 @@
         </button>
         <p id="scanStatus" style="font-size:.75rem;color:var(--sub);text-align:center;margin:.4rem 0 0;display:none"></p>
       </div>
+      -->
       <div class="form-row">
         <div class="form-group">
           <label>Montant ({{ current_user.currency }})</label>
