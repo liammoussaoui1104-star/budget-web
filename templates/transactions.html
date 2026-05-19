@@ -315,11 +315,13 @@ async function handleScanFile(input) {
   reader.readAsDataURL(file);
 }
 
+const USER_CURRENCY = '{{ current_user.currency | e }}';
+
 function fmtMoney(val) {
   val = parseFloat(val) || 0;
   const [int, dec] = val.toFixed(2).split('.');
   const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return `${intFmt},${dec} €`;
+  return `${intFmt},${dec} ${USER_CURRENCY}`;
 }
 
 // Open/close modals
@@ -336,6 +338,32 @@ document.getElementById('modalEdit').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal('modalEdit');
 });
 
+// ── Gestion des filtres dans l'URL ────────────────────────────────────────
+
+function buildReloadUrl() {
+  const url = new URL(window.location.href);
+  const vals = {
+    ft: document.getElementById('filterType').value,
+    fp: document.getElementById('filterPaye').value,
+    fq: document.getElementById('filterPour').value,
+    fc: document.getElementById('filterCat').value,
+  };
+  Object.entries(vals).forEach(([k, v]) => {
+    if (v) url.searchParams.set(k, v);
+    else url.searchParams.delete(k);
+  });
+  return url.toString();
+}
+
+function restoreFiltersFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  document.getElementById('filterType').value = params.get('ft') || '';
+  document.getElementById('filterPaye').value = params.get('fp') || '';
+  document.getElementById('filterPour').value = params.get('fq') || '';
+  document.getElementById('filterCat').value  = params.get('fc') || '';
+  applyFilters(false);
+}
+
 // Add transaction
 document.getElementById('formAdd').addEventListener('submit', async e => {
   e.preventDefault();
@@ -351,7 +379,7 @@ document.getElementById('formAdd').addEventListener('submit', async e => {
     e.target.reset();
     document.getElementById('addJour').value = {{ now_day }};
     showToast('Transaction ajoutée ✓');
-    setTimeout(() => location.reload(), 800);
+    setTimeout(() => { location.href = buildReloadUrl(); }, 800);
   } else {
     showToast('Erreur : ' + (json.error || 'inconnue'), false);
   }
@@ -384,7 +412,7 @@ document.getElementById('formEdit').addEventListener('submit', async e => {
   const json = await res.json();
   if (json.ok) {
     showToast('Modifié ✓');
-    setTimeout(() => location.reload(), 600);
+    setTimeout(() => { location.href = buildReloadUrl(); }, 600);
   } else {
     showToast('Erreur : ' + (json.error || 'inconnue'), false);
   }
@@ -406,10 +434,10 @@ async function deleteDep(id, btn) {
 
 // Filters
 ['filterType','filterPaye','filterPour','filterCat'].forEach(f =>
-  document.getElementById(f).addEventListener('change', applyFilters)
+  document.getElementById(f).addEventListener('change', () => applyFilters(true))
 );
 
-function applyFilters() {
+function applyFilters(saveUrl = true) {
   const type = document.getElementById('filterType').value;
   const paye = document.getElementById('filterPaye').value;
   const pour = document.getElementById('filterPour').value;
@@ -427,6 +455,7 @@ function applyFilters() {
   document.getElementById('summaryTotal').textContent = fmtMoney(total);
   const noRes = document.getElementById('noResults');
   if (noRes) noRes.classList.toggle('hidden', count > 0 || document.querySelectorAll('.dep-row').length === 0);
+  if (saveUrl) history.replaceState(null, '', buildReloadUrl());
 }
 
 function updateSummary() {
@@ -440,6 +469,8 @@ function updateSummary() {
   document.getElementById('summaryCount').textContent = count;
   document.getElementById('summaryTotal').textContent = fmtMoney(total);
 }
+
+restoreFiltersFromUrl();
 
 function showToast(msg, ok = true) {
   const t = document.getElementById('toastMsg');

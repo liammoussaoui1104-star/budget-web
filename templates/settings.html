@@ -126,13 +126,39 @@
   </form>
 </div>
 
+<!-- Mes catégories -->
+<div class="card settings-section">
+  <div class="card-title">Mes catégories</div>
+  <p class="settings-desc">Les catégories par défaut ne sont pas supprimables. Ajoute tes propres catégories pour les retrouver dans le formulaire de transaction.</p>
+  <div id="catTagList" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem">
+    {% for cat in CATS %}
+    <span class="cat-tag cat-tag-default">{{ cat }}</span>
+    {% endfor %}
+    {% for cat in custom_cats %}
+    <span class="cat-tag cat-tag-custom" data-id="{{ cat.id }}">
+      {{ cat.name }}
+      <button class="cat-del-btn" onclick="deleteCustomCat({{ cat.id }}, this)" title="Supprimer">✕</button>
+    </span>
+    {% endfor %}
+  </div>
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <input type="text" id="newCatInput" placeholder="Nouvelle catégorie…"
+           style="max-width:220px;flex:1"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCat();}">
+    <button class="btn btn-outline" onclick="addCustomCat()">+ Ajouter</button>
+  </div>
+</div>
+
 <!-- Zone de danger -->
 <div class="card settings-section" style="border-color:#fca5a5">
   <div class="card-title" style="color:#dc2626">Zone de danger</div>
-  <p class="settings-desc">La suppression est <strong>irréversible</strong> : toutes tes données (transactions, membres, budgets, statistiques) seront définitivement effacées.</p>
+  <p class="settings-desc">
+    Le compte sera <strong>désactivé</strong> : tu ne pourras plus te connecter.
+    Tes données sont conservées — contacte l'administrateur pour réactiver ou supprimer définitivement.
+  </p>
   <button class="btn" id="btnDeleteAccount"
           style="background:#dc2626;color:#fff;border-color:#dc2626">
-    Supprimer mon compte et toutes mes données
+    Désactiver mon compte
   </button>
 </div>
 
@@ -292,14 +318,14 @@ function showToast(msg, ok = true) {
   t._timer = setTimeout(() => { t.className = 'toast hidden'; }, 3500);
 }
 
-// Suppression compte
+// Désactivation compte
 document.getElementById('btnDeleteAccount').addEventListener('click', async () => {
   const confirmed = confirm(
-    'ATTENTION : cette action est irréversible.\n\nToutes tes données seront définitivement supprimées (transactions, budgets, membres, statistiques).\n\nÉcris "SUPPRIMER" pour confirmer.'
+    'Désactiver ton compte ?\n\nTu ne pourras plus te connecter. Tes données sont conservées.\nContacte l\'administrateur pour réactiver ou supprimer définitivement.'
   );
   if (!confirmed) return;
-  const code = prompt('Tape SUPPRIMER pour confirmer :');
-  if (code !== 'SUPPRIMER') { showToast('Suppression annulée.', false); return; }
+  const code = prompt('Tape DÉSACTIVER pour confirmer :');
+  if (code !== 'DÉSACTIVER') { showToast('Annulé.', false); return; }
   const res = await fetch('/api/delete-account', { method: 'POST' });
   const json = await res.json();
   if (json.ok) {
@@ -308,5 +334,44 @@ document.getElementById('btnDeleteAccount').addEventListener('click', async () =
     showToast('Erreur : ' + (json.error || ''), false);
   }
 });
+
+// Catégories personnalisées
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function addCustomCat() {
+  const inp = document.getElementById('newCatInput');
+  const name = inp.value.trim();
+  if (!name) { inp.focus(); return; }
+  const res = await fetch('/api/categories/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name })
+  });
+  const json = await res.json();
+  if (json.ok) {
+    const tag = document.createElement('span');
+    tag.className = 'cat-tag cat-tag-custom';
+    tag.dataset.id = json.id;
+    tag.innerHTML = `${escHtml(name)} <button class="cat-del-btn" onclick="deleteCustomCat(${json.id}, this)" title="Supprimer">✕</button>`;
+    document.getElementById('catTagList').appendChild(tag);
+    inp.value = '';
+    showToast('Catégorie ajoutée ✓');
+  } else {
+    showToast('Erreur : ' + (json.error || ''), false);
+  }
+}
+
+async function deleteCustomCat(id, btn) {
+  const res = await fetch(`/api/categories/${id}/delete`, { method: 'POST' });
+  const json = await res.json();
+  if (json.ok) {
+    btn.closest('.cat-tag-custom').remove();
+    showToast('Catégorie supprimée ✓');
+  } else {
+    showToast('Erreur : ' + (json.error || ''), false);
+  }
+}
 </script>
 {% endblock %}

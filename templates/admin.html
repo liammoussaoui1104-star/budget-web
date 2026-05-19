@@ -42,7 +42,8 @@
       </thead>
       <tbody>
         {% for u in users %}
-        <tr id="user-row-{{ u.id }}" class="{% if u.blocked %}user-blocked{% endif %}">
+        {% set is_deactivated = u.account_status == 'deactivated' %}
+        <tr id="user-row-{{ u.id }}" class="{% if u.blocked %}user-blocked{% elif is_deactivated %}user-deactivated{% endif %}">
           <td class="text-sub">{{ u.id }}</td>
           <td>{{ u.email }}</td>
           <td>{{ u.household_name or '—' }}</td>
@@ -57,15 +58,25 @@
             {% endif %}
           </td>
           <td class="text-center" id="status-{{ u.id }}">
-            {% if u.blocked %}
+            {% if is_deactivated %}
+            <span class="badge badge-deactivated">Désactivé</span>
+            {% if u.deactivated_at %}
+            <div style="font-size:.72rem;color:var(--sub);margin-top:.2rem">{{ u.deactivated_at[:10] }}</div>
+            {% endif %}
+            {% elif u.blocked %}
             <span class="badge badge-blocked">Bloqué</span>
             {% else %}
             <span class="badge badge-active">Actif</span>
             {% endif %}
           </td>
-          <td class="text-center">
+          <td class="text-center" style="white-space:nowrap">
             {% if not u.is_admin %}
-              {% if u.blocked %}
+              {% if is_deactivated %}
+              <button class="btn btn-sm btn-outline user-reactivate-btn"
+                      data-id="{{ u.id }}" style="margin-bottom:.25rem">Réactiver</button>
+              <button class="btn btn-sm btn-danger user-delete-perm-btn"
+                      data-id="{{ u.id }}">Supprimer déf.</button>
+              {% elif u.blocked %}
               <button class="btn btn-sm btn-outline user-unblock-btn"
                       data-id="{{ u.id }}">Débloquer</button>
               {% else %}
@@ -213,6 +224,24 @@ document.querySelectorAll('.user-unblock-btn').forEach(btn => {
   wireUnblock(btn, btn.dataset.id);
 });
 
+function wireBlock(btn, id) {
+  btn.addEventListener('click', async () => {
+    const res = await fetch(`/admin/users/${id}/block`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById(`status-${id}`).innerHTML = '<span class="badge badge-blocked">Bloqué</span>';
+      btn.textContent = 'Débloquer';
+      btn.classList.remove('btn-danger', 'user-block-btn');
+      btn.classList.add('btn-outline', 'user-unblock-btn');
+      document.getElementById(`user-row-${id}`).classList.add('user-blocked');
+      wireUnblock(btn, id);
+      showToast('Compte bloqué.');
+    } else {
+      showToast('Erreur.', false);
+    }
+  });
+}
+
 function wireUnblock(btn, id) {
   btn.addEventListener('click', async () => {
     const res = await fetch(`/admin/users/${id}/unblock`, { method: 'POST' });
@@ -230,6 +259,42 @@ function wireUnblock(btn, id) {
     }
   });
 }
+
+// Reactivate deactivated account
+document.querySelectorAll('.user-reactivate-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const id = btn.dataset.id;
+    const res = await fetch(`/admin/users/${id}/reactivate`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById(`status-${id}`).innerHTML = '<span class="badge badge-active">Actif</span>';
+      const row = document.getElementById(`user-row-${id}`);
+      row.classList.remove('user-deactivated');
+      const td = btn.closest('td');
+      td.innerHTML = `<button class="btn btn-sm btn-danger user-block-btn" data-id="${id}">Bloquer</button>`;
+      wireBlock(td.querySelector('.user-block-btn'), id);
+      showToast('Compte réactivé ✓');
+    } else {
+      showToast('Erreur.', false);
+    }
+  });
+});
+
+// Permanent delete
+document.querySelectorAll('.user-delete-perm-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const id = btn.dataset.id;
+    if (!confirm('Supprimer définitivement ce compte et toutes ses données ?')) return;
+    const res = await fetch(`/admin/users/${id}/delete_permanent`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById(`user-row-${id}`).remove();
+      showToast('Compte supprimé définitivement ✓');
+    } else {
+      showToast('Erreur.', false);
+    }
+  });
+});
 
 // Toggle specific email field
 document.querySelectorAll('input[name="emailTarget"]').forEach(radio => {

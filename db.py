@@ -82,6 +82,12 @@ class DB:
                 is_admin INTEGER DEFAULT 0,
                 created_at TEXT {ts}
             )""",
+            f"""CREATE TABLE IF NOT EXISTS custom_categories (
+                id {pk},
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                UNIQUE(user_id, name)
+            )""",
             f"""CREATE TABLE IF NOT EXISTS members (
                 id {pk},
                 user_id INTEGER NOT NULL,
@@ -172,6 +178,8 @@ class DB:
             "ALTER TABLE users ADD COLUMN currency TEXT DEFAULT '€'",
             "ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN verification_token TEXT",
+            "ALTER TABLE users ADD COLUMN account_status TEXT DEFAULT 'active'",
+            "ALTER TABLE users ADD COLUMN deactivated_at TEXT",
         ]
         for sql in migrations:
             try:
@@ -460,7 +468,7 @@ class DB:
 
     def get_all_users(self):
         return self._run(
-            "SELECT id, email, household_name, is_admin, blocked, created_at FROM users ORDER BY id DESC",
+            "SELECT id, email, household_name, is_admin, blocked, created_at, account_status, deactivated_at FROM users ORDER BY id DESC",
             fetch="all"
         )
 
@@ -469,6 +477,19 @@ class DB:
 
     def unblock_user(self, uid):
         self._run("UPDATE users SET blocked=0 WHERE id=?", (uid,))
+
+    def deactivate_user(self, uid):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self._run(
+            "UPDATE users SET account_status='deactivated', deactivated_at=? WHERE id=?",
+            (now, uid)
+        )
+
+    def reactivate_user(self, uid):
+        self._run(
+            "UPDATE users SET account_status='active', deactivated_at=NULL WHERE id=?",
+            (uid,)
+        )
 
     def set_currency(self, uid, symbol):
         self._run("UPDATE users SET currency=? WHERE id=?", (symbol, uid))
@@ -549,6 +570,26 @@ class DB:
 
     def delete_all_shopping_items(self, uid):
         self._run("DELETE FROM shopping_list WHERE user_id=?", (uid,))
+
+    # ── Catégories personnalisées ──────────────────────────────────────────
+
+    def get_custom_categories(self, uid):
+        return self._run(
+            "SELECT * FROM custom_categories WHERE user_id=? ORDER BY id",
+            (uid,), fetch="all"
+        )
+
+    def add_custom_category(self, uid, name):
+        return self._run(
+            "INSERT INTO custom_categories (user_id, name) VALUES (?,?)",
+            (uid, name), fetch="id"
+        )
+
+    def delete_custom_category(self, uid, cat_id):
+        self._run(
+            "DELETE FROM custom_categories WHERE id=? AND user_id=?",
+            (cat_id, uid)
+        )
 
     # ── Utils ──────────────────────────────────────────────────────────────
 

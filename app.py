@@ -39,6 +39,12 @@ CURRENCIES = [
 _VALID_CURRENCIES = {c["symbol"] for c in CURRENCIES}
 
 
+def get_all_cats(uid):
+    """Return default CATS + user's custom categories as a flat list of strings."""
+    custom = db.get_custom_categories(uid)
+    return CATS + [c["name"] for c in custom]
+
+
 class User(UserMixin):
     def __init__(self, row):
         self.id = row["id"]
@@ -207,6 +213,9 @@ def login():
             if row["blocked"]:
                 flash("Ton compte a été suspendu. Contacte l'administrateur.", "error")
                 return render_template("login.html")
+            if row.get("account_status") == "deactivated":
+                flash("Ton compte a été désactivé. Contacte l'administrateur pour le réactiver.", "error")
+                return render_template("login.html")
             if not row["email_verified"]:
                 flash("EMAIL_NOT_VERIFIED:" + email, "error")
                 return render_template("login.html")
@@ -340,11 +349,13 @@ def transactions():
     py, pm = prev_period(y, m)
     ny, nm = next_period(y, m)
 
+    all_cats = get_all_cats(uid)
+    custom_cats = db.get_custom_categories(uid)
     return render_template("transactions.html",
         y=y, m=m, mois_fr=MOIS_FR[m],
         py=py, pm=pm, ny=ny, nm=nm,
         members=members, payers=payers,
-        depenses=depenses, CATS=CATS,
+        depenses=depenses, CATS=all_cats,
         totaux_payeur=totaux_payeur, total_dep=total_dep,
         color_map=color_map,
         now_day=datetime.now().day
@@ -499,6 +510,7 @@ def settings():
     py, pm = prev_period(y, m)
     ny, nm = next_period(y, m)
 
+    custom_cats = db.get_custom_categories(uid)
     return render_template("settings.html",
         y=y, m=m, mois_fr=MOIS_FR[m],
         py=py, pm=pm, ny=ny, nm=nm,
@@ -508,6 +520,7 @@ def settings():
         household=current_user.household_name,
         currency=current_user.currency,
         CURRENCIES=CURRENCIES,
+        custom_cats=custom_cats,
     )
 
 
@@ -752,6 +765,24 @@ def admin_unblock_user(uid):
     return jsonify(ok=True)
 
 
+@app.route("/admin/users/<int:uid>/reactivate", methods=["POST"])
+@login_required
+def admin_reactivate_user(uid):
+    if not current_user.is_admin:
+        return jsonify(ok=False), 403
+    db.reactivate_user(uid)
+    return jsonify(ok=True)
+
+
+@app.route("/admin/users/<int:uid>/delete_permanent", methods=["POST"])
+@login_required
+def admin_delete_user_permanent(uid):
+    if not current_user.is_admin:
+        return jsonify(ok=False), 403
+    db.delete_user(uid)
+    return jsonify(ok=True)
+
+
 @app.route("/admin/messages")
 @login_required
 def admin_messages():
@@ -848,11 +879,12 @@ def courses():
     members = db.get_members(uid)
     payers = [mb for mb in members if mb["is_payer"]]
     items = db.get_shopping_list(uid)
+    all_cats = get_all_cats(uid)
     return render_template("courses.html",
         y=y, m=m, mois_fr=MOIS_FR[m],
         py=py, pm=pm, ny=ny, nm=nm,
         members=members, payers=payers,
-        items=items, CATS=CATS,
+        items=items, CATS=all_cats,
         now_day=now.day,
     )
 
@@ -991,6 +1023,36 @@ def api_scan_ticket():
     return jsonify(ok=True, montant=montant, jour=jour, description=description)
 
 
+# ── Catégories personnalisées ─────────────────────────────────────────────
+
+@app.route("/api/categories/add", methods=["POST"])
+@login_required
+def api_categories_add():
+    uid = current_user.id
+    try:
+        data = request.get_json() or {}
+        name = data.get("name", "").strip()
+        if not name:
+            return jsonify(ok=False, error="Nom requis"), 400
+        if name in CATS:
+            return jsonify(ok=False, error="Cette catégorie existe déjà"), 400
+        cat_id = db.add_custom_category(uid, name)
+        return jsonify(ok=True, id=cat_id)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
+@app.route("/api/categories/<int:cat_id>/delete", methods=["POST"])
+@login_required
+def api_categories_delete(cat_id):
+    uid = current_user.id
+    try:
+        db.delete_custom_category(uid, cat_id)
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
 # ── Politique de confidentialité ──────────────────────────────────────────
 
 @app.route("/politique-confidentialite")
@@ -1003,8 +1065,8 @@ def politique_confidentialite():
 def api_delete_account():
     uid = current_user.id
     try:
+        db.deactivate_user(uid)
         logout_user()
-        db.delete_user(uid)
         return jsonify(ok=True)
     except Exception as e:
         return jsonify(ok=False, error=str(e)), 400
