@@ -1,7 +1,10 @@
 import os
 import sqlite3
 import secrets
+import logging
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "budget_web.db")
 
@@ -162,8 +165,9 @@ class DB:
                 for stmt in stmts:
                     conn.execute(stmt)
             conn.commit()
-        except Exception:
+        except Exception as e:
             conn.rollback()
+            logger.error("DB _init failed: %s", e)
             raise
         finally:
             conn.close()
@@ -172,28 +176,35 @@ class DB:
 
     def _migrate(self):
         """Add new columns to existing tables without breaking live databases."""
-        migrations = [
-            "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN currency TEXT DEFAULT '€'",
-            "ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN verification_token TEXT",
-            "ALTER TABLE users ADD COLUMN account_status TEXT DEFAULT 'active'",
-            "ALTER TABLE users ADD COLUMN deactivated_at TEXT",
+        # (col_name, definition)
+        col_migrations = [
+            ("is_admin",            "INTEGER DEFAULT 0"),
+            ("blocked",             "INTEGER DEFAULT 0"),
+            ("currency",            "TEXT DEFAULT '€'"),
+            ("email_verified",      "INTEGER DEFAULT 0"),
+            ("verification_token",  "TEXT"),
+            ("account_status",      "TEXT DEFAULT 'active'"),
+            ("deactivated_at",      "TEXT"),
         ]
-        for sql in migrations:
+        for col, defn in col_migrations:
+            # PostgreSQL supports IF NOT EXISTS (avoids a roundtrip error)
+            if _USE_PG:
+                sql = f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {defn}"
+            else:
+                sql = f"ALTER TABLE users ADD COLUMN {col} {defn}"
             try:
                 self._run(sql)
-            except Exception:
-                pass  # column already exists
+            except Exception as e:
+                # SQLite raises if column already exists — that's expected and harmless
+                logger.debug("Migration skipped (%s): %s", col, e)
 
         # Existing accounts are considered verified
         try:
             self._run(
                 "UPDATE users SET email_verified=1 WHERE email_verified=0 AND verification_token IS NULL"
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Migration: could not backfill email_verified: %s", e)
 
     def __init__(self):
         self._init()

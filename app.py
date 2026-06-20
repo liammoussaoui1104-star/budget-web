@@ -16,7 +16,13 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Connecte-toi pour accéder à l'application."
 
-db = DB()
+try:
+    db = DB()
+except Exception as _db_err:
+    import logging as _logging
+    _logging.basicConfig()
+    _logging.getLogger(__name__).critical("DB init failed: %s", _db_err, exc_info=True)
+    raise
 
 MOIS_FR = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
            "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -210,13 +216,13 @@ def login():
         pwd = request.form.get("password", "")
         row = db.get_user_by_email(email)
         if row and check_password_hash(row["password_hash"], pwd):
-            if row["blocked"]:
+            if row.get("blocked"):
                 flash("Ton compte a été suspendu. Contacte l'administrateur.", "error")
                 return render_template("login.html")
             if row.get("account_status") == "deactivated":
                 flash("Ton compte a été désactivé. Contacte l'administrateur pour le réactiver.", "error")
                 return render_template("login.html")
-            if not row["email_verified"]:
+            if not row.get("email_verified", 1):
                 flash("EMAIL_NOT_VERIFIED:" + email, "error")
                 return render_template("login.html")
             login_user(User(row), remember=request.form.get("remember") == "on")
@@ -240,7 +246,7 @@ def verify_email(token):
 def resend_verification():
     email = request.form.get("email", "").strip().lower()
     row = db.get_user_by_email(email)
-    if row and not row["email_verified"]:
+    if row and not row.get("email_verified", 1):
         token = secrets.token_urlsafe(32)
         db.set_verification_token(row["id"], token)
         try:
